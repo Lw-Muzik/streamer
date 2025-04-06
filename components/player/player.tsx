@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SongItem } from '@/types';
+import Link from 'next/link';
+import Equalizer from '../equalizer.tsx/equalizer';
 
 interface PlayerProps {
     currentSong: SongItem | null;
@@ -8,6 +10,8 @@ interface PlayerProps {
     onNextSong: () => void;
     onPrevSong: () => void;
     onTogglePlayPause: () => void;
+    onToggleEqualizer: (enabled: boolean) => void;
+    equalizerEnabled: boolean;
     playlist?: SongItem[];
 }
 
@@ -18,15 +22,20 @@ const Player: React.FC<PlayerProps> = ({
     onNextSong,
     onPrevSong,
     onTogglePlayPause,
+    onToggleEqualizer,
+    equalizerEnabled,
     playlist = []
 }) => {
     const [currentTime, setCurrentTime] = useState<number>(0);
     const [duration, setDuration] = useState<number>(0);
+    const [showEqualizerModal, setShowEqualizerModal] = useState<boolean>(false);
+    const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
 
     useEffect(() => {
         // Update current time and duration
         const audioEl = document.getElementById('audio') as HTMLAudioElement;
         if (audioEl) {
+            setAudioElement(audioEl);
             const updateTimes = () => {
                 setCurrentTime(audioEl.currentTime);
                 setDuration(audioEl.duration);
@@ -54,11 +63,15 @@ const Player: React.FC<PlayerProps> = ({
         return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
     };
 
+    const toggleEqualizer = () => {
+        setShowEqualizerModal(!showEqualizerModal);
+    };
+
     return (
-        <div className="w-full text-white p-4">
-            <div className="flex items-center justify-between">
+        <div className="w-full text-white">
+            <div className="p-4 flex items-center justify-between">
                 {/* Song info - left side */}
-                <div className="flex items-center space-x-4 w-1/3">
+                <Link href='/player' className="flex items-center space-x-4 w-1/3">
                     {/* Album art placeholder */}
                     <div className="w-12 h-12 bg-[#282828] rounded-md overflow-hidden flex items-center justify-center flex-shrink-0 border border-[#333333]">
                         <svg className="h-6 w-6 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -76,7 +89,7 @@ const Player: React.FC<PlayerProps> = ({
                             {currentSong ? formatDate(currentSong.lastModified) : "Select a song to play"}
                         </p>
                     </div>
-                </div>
+                </Link>
 
                 {/* Player controls - center */}
                 <div className="flex flex-col items-center w-1/3">
@@ -156,7 +169,26 @@ const Player: React.FC<PlayerProps> = ({
                 </div>
 
                 {/* Right side - can be used for additional controls */}
-                <div className="w-1/3 flex justify-end">
+                <div className="w-1/3 flex justify-end space-x-3">
+                    <button
+                        onClick={toggleEqualizer}
+                        className={`flex items-center space-x-1 text-xs ${showEqualizerModal ? 'text-[#1DB954]' : 'text-gray-400'} hover:text-white transition-colors px-2 py-1 rounded bg-[#282828]`}
+                        title="Toggle Equalizer"
+                    >
+                        <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="4" y1="21" x2="4" y2="14"></line>
+                            <line x1="4" y1="10" x2="4" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="12"></line>
+                            <line x1="12" y1="8" x2="12" y2="3"></line>
+                            <line x1="20" y1="21" x2="20" y2="16"></line>
+                            <line x1="20" y1="12" x2="20" y2="3"></line>
+                            <line x1="1" y1="14" x2="7" y2="14"></line>
+                            <line x1="9" y1="8" x2="15" y2="8"></line>
+                            <line x1="17" y1="16" x2="23" y2="16"></line>
+                        </svg>
+                        <span>EQ</span>
+                    </button>
+
                     {currentSong && (
                         <div className="text-xs text-gray-400 bg-[#282828] px-2 py-1 rounded">
                             {currentSong.size ? `${Math.round(currentSong.size / 1024 / 1024 * 10) / 10} MB` : ""}
@@ -164,6 +196,29 @@ const Player: React.FC<PlayerProps> = ({
                     )}
                 </div>
             </div>
+
+            {/* Equalizer Modal */}
+            {showEqualizerModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
+                    <div className="bg-[#282828] border-[#333333] rounded-lg shadow-xl w-full max-w-2xl h-1/3 p-4 mx-4">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold">Audio Equalizer</h3>
+                            <button
+                                onClick={() => setShowEqualizerModal(false)}
+                                className="text-gray-400 hover:text-white"
+                            >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <Equalizer
+                            audioElement={audioElement}
+                            onEnableChange={onToggleEqualizer}
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

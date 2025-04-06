@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SongItem, FolderItem } from '@/types';
 import Player from '@/components/player/player';
-
 export default function Home() {
   const [items, setItems] = useState<SongItem[]>([]);
   const [playlist, setPlaylist] = useState<SongItem[]>([]);
@@ -19,6 +18,7 @@ export default function Home() {
   const [localMusic, setLocalMusic] = useState<SongItem[]>([]);
   const [uploadStatus, setUploadStatus] = useState<{ success: boolean, message: string } | null>(null);
   const [viewMode, setViewMode] = useState<'server' | 'local'>('server');
+  const [equalizerEnabled, setEqualizerEnabled] = useState<boolean>(false);
 
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
@@ -274,6 +274,11 @@ export default function Home() {
       });
     };
   }, [localMusic]);
+
+  // Toggle equalizer enabled state
+  const toggleEqualizer = (enabled: boolean) => {
+    setEqualizerEnabled(enabled);
+  };
 
   // Filter playlist based on search
   const filteredPlaylist = search
@@ -675,6 +680,8 @@ export default function Home() {
             onNextSong={nextSong}
             onPrevSong={previousSong}
             onTogglePlayPause={togglePlayPause}
+            onToggleEqualizer={toggleEqualizer}
+            equalizerEnabled={equalizerEnabled}
           />
         </div>
       </div>
