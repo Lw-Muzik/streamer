@@ -3,9 +3,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 interface EqualizerProps {
-  audioElement: HTMLAudioElement | null;
-  audioContext?: AudioContext | null;
-  audioSource?: MediaElementAudioSourceNode | null;
   onEnableChange?: (enabled: boolean) => void;
 }
 
@@ -13,10 +10,11 @@ interface EqualizerProps {
 const FREQUENCY_BANDS = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 
 const Equalizer: React.FC<EqualizerProps> = ({
-  audioElement,
   onEnableChange
 }) => {
+  // States for UI and audio processing
   const [isEnabled, setIsEnabled] = useState<boolean>(false);
+  const [isCapturing, setIsCapturing] = useState<boolean>(false);
   const [compressorEnabled, setCompressorEnabled] = useState<boolean>(false);
   const [compressorSettings, setCompressorSettings] = useState({
     threshold: -24,
@@ -35,108 +33,140 @@ const Equalizer: React.FC<EqualizerProps> = ({
   const [activeTab, setActiveTab] = useState<'eq' | 'comp'>('eq');
 
   // Refs to store audio nodes
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
   const filtersRef = useRef<BiquadFilterNode[]>([]);
   const compressorRef = useRef<DynamicsCompressorNode | null>(null);
   const gainNodeRef = useRef<GainNode | null>(null);
-  const audioContext = new AudioContext();
-  let source: MediaElementAudioSourceNode | null = null;
-  // Initialize audio context and nodes
-  useEffect(() => {
-    if (!audioElement) return;
-    if (source == null) {
-      // Create source from audio element only if it doesn't exist externally
-      source = audioContext.createMediaElementSource(audioElement);
-      // Create gain node (master volume)
-      const gainNode = audioContext.createGain();
-      gainNodeRef.current = gainNode;
 
-      // Create compressor
-      const compressor = audioContext.createDynamicsCompressor();
-      compressorRef.current = compressor;
-      updateCompressorSettings();
+  // Start capturing tab audio
+  const startCapture = () => {
+    // if (typeof chrome === 'undefined' || !chrome.tabCapture) {
+    //   console.error("Chrome tabCapture API not available");
+    //   return;
+    // }
 
-      // Create filters for each frequency band
-      const filters = FREQUENCY_BANDS.map(frequency => {
-        const filter = audioContext.createBiquadFilter();
-        filter.type = 'peaking'; // EQ filter type
-        filter.frequency.value = frequency;
-        filter.Q.value = 1.4; // Quality factor
-        filter.gain.value = 0; // Initial gain (0dB = no change)
-        return filter;
-      });
-      filtersRef.current = filters;
+    chrome.tabCapture.capture({ audio: true, video: false }, (stream) => {
+      if (stream) {
+        // Store the stream for later cleanup
+        mediaStreamRef.current = stream;
 
-      // Connect audio graph
-      if (isEnabled) {
-        connectNodes(audioContext, source);
+        // Create audio context if it doesn't exist
+        if (!audioContextRef.current) {
+          audioContextRef.current = new AudioContext();
+        }
+
+        // Create audio source from captured stream
+        sourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
+
+        // Create gain node (master volume)
+        const gainNode = audioContextRef.current.createGain();
+        gainNodeRef.current = gainNode;
+
+        // Create compressor
+        const compressor = audioContextRef.current.createDynamicsCompressor();
+        compressorRef.current = compressor;
+        updateCompressorSettings();
+
+        // Create filters for each frequency band
+        const filters = FREQUENCY_BANDS.map(frequency => {
+          const filter = audioContextRef.current!.createBiquadFilter();
+          filter.type = 'peaking'; // EQ filter type
+          filter.frequency.value = frequency;
+          filter.Q.value = 1.4; // Quality factor
+          filter.gain.value = 0; // Initial gain (0dB = no change)
+          return filter;
+        });
+        filtersRef.current = filters;
+
+        // Connect nodes based on current settings
+        if (isEnabled) {
+          connectNodes();
+        } else {
+          // Just pass through if not enabled
+          sourceRef.current.connect(audioContextRef.current.destination);
+        }
+
+        setIsCapturing(true);
+        console.log("Tab audio capture started");
       } else {
-        // Bypass EQ if disabled
-        source.connect(audioContext.destination);
+        console.error("Error starting tab capture:", chrome.runtime.lastError);
       }
+    });
+  };
+
+  // Stop capturing tab audio
+  const stopCapture = () => {
+    // Stop all tracks in the media stream
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
     }
 
+    // Disconnect audio nodes
+    if (sourceRef.current) {
+      sourceRef.current.disconnect();
+      sourceRef.current = null;
+    }
 
+    if (gainNodeRef.current) {
+      gainNodeRef.current.disconnect();
+    }
+
+    if (compressorRef.current) {
+      compressorRef.current.disconnect();
+    }
+
+    filtersRef.current.forEach(filter => {
+      filter.disconnect();
+    });
+
+    // Close audio context
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+
+    setIsCapturing(false);
+    console.log("Tab audio capture stopped");
+  };
+
+  // Clean up when component unmounts
+  useEffect(() => {
     return () => {
-      // Disconnect nodes on cleanup but don't disconnect the source
-      if (gainNodeRef.current) {
-        gainNodeRef.current.disconnect();
-      }
-      if (compressorRef.current) {
-        compressorRef.current.disconnect();
-      }
-      filtersRef.current.forEach(filter => {
-        filter.disconnect();
-      });
-
-      // Ensure the source is connected to the destination when component unmounts
-      if (source && audioContext) {
-        try {
-          source.disconnect();
-          source.connect(audioContext.destination);
-        } catch (error) {
-          console.error("Error reconnecting source:", error);
-        }
-      }
+      stopCapture();
     };
-  }, [audioElement]);
+  }, []);
 
   // Update connections when enabled state changes
-  // useEffect(() => {
+  useEffect(() => {
+    if (!isCapturing || !sourceRef.current || !audioContextRef.current) return;
 
-  //   if (!audioContext) return;
-  //   if (source == null) {
-  //     source?.disconnect();
-  //     // Disconnect all existing connections except source
-  //     if (gainNodeRef.current) {
-  //       gainNodeRef.current.disconnect();
-  //     }
-  //     if (compressorRef.current) {
-  //       compressorRef.current.disconnect();
-  //     }
-  //     filtersRef.current.forEach(filter => {
-  //       filter.disconnect();
-  //     });
+    // Disconnect existing connections
+    sourceRef.current.disconnect();
+    if (gainNodeRef.current) gainNodeRef.current.disconnect();
+    if (compressorRef.current) compressorRef.current.disconnect();
+    filtersRef.current.forEach(filter => filter.disconnect());
 
-  //     if (isEnabled) {
-  //       connectNodes(audioContext, source!);
-  //     } else {
-  //       // Bypass EQ if disabled
-  //       source.disconnect();
-  //       source.connect(audioContext.destination);
-  //     }
-  //   }
-  // }, [isEnabled, compressorEnabled, source, audioContext]);
+    if (isEnabled) {
+      connectNodes();
+    } else {
+      // Bypass processing if disabled
+      sourceRef.current.connect(audioContextRef.current.destination);
+    }
+  }, [isEnabled, compressorEnabled, isCapturing]);
 
   // Update filter values when eqValues change
   useEffect(() => {
-    if (!isEnabled) return;
+    if (!isEnabled || !isCapturing) return;
 
     filtersRef.current.forEach((filter, index) => {
       if (filter) {
         filter.gain.value = eqValues[index];
       }
     });
-  }, [eqValues, isEnabled]);
+  }, [eqValues, isEnabled, isCapturing]);
 
   // Update compressor settings when they change
   useEffect(() => {
@@ -144,33 +174,27 @@ const Equalizer: React.FC<EqualizerProps> = ({
   }, [compressorSettings]);
 
   // Connect nodes in the proper order
-  const connectNodes = (audioContext: AudioContext, source: MediaElementAudioSourceNode) => {
-    if (!source || !audioContext || !gainNodeRef.current || !compressorRef.current || filtersRef.current.length === 0) return;
-
-    // Start with the source
-    source.disconnect();
+  const connectNodes = () => {
+    if (!sourceRef.current || !audioContextRef.current || !gainNodeRef.current ||
+      !compressorRef.current || filtersRef.current.length === 0) return;
 
     // Connect source to the first filter
-    source.connect(filtersRef.current[0]);
+    sourceRef.current.connect(filtersRef.current[0]);
 
     // Connect filters in series
     for (let i = 0; i < filtersRef.current.length - 1; i++) {
-      // filtersRef.current[i].disconnect();
       filtersRef.current[i].connect(filtersRef.current[i + 1]);
     }
-    // filtersRef.current[filtersRef.current.length - 1].connect(audioContext.destination);
+
     // Connect the last filter to the gain node
-    // filtersRef.current[filtersRef.current.length - 1].disconnect();
     filtersRef.current[filtersRef.current.length - 1].connect(gainNodeRef.current);
 
     // Connect gain to compressor or destination based on compressor state
-    // gainNodeRef.current.disconnect();
     if (compressorEnabled) {
       gainNodeRef.current.connect(compressorRef.current);
-      compressorRef.current.disconnect();
-      compressorRef.current.connect(audioContext.destination);
+      compressorRef.current.connect(audioContextRef.current.destination);
     } else {
-      gainNodeRef.current.connect(audioContext.destination);
+      gainNodeRef.current.connect(audioContextRef.current.destination);
     }
   };
 
@@ -219,30 +243,43 @@ const Equalizer: React.FC<EqualizerProps> = ({
     setCompressorEnabled(prev => !prev);
   };
 
+  // Toggle capture
+  const toggleCapture = () => {
+    if (isCapturing) {
+      stopCapture();
+    } else {
+      startCapture();
+    }
+  };
+
   return (
     <div className="bg-[#28282828] m-2 rounded-lg text-white">
       <div className="flex justify-between items-center mb-3">
         <div className="flex space-x-1">
           <button
             onClick={() => setActiveTab('eq')}
-            className={`px-3 py-1 text-xs rounded-md ${activeTab === 'eq' ? 'bg-[#333333]' : 'bg-transparent'
-              }`}
+            className={`px-3 py-1 text-xs rounded-md ${activeTab === 'eq' ? 'bg-[#333333]' : 'bg-transparent'}`}
           >
             Equalizer
           </button>
           <button
             onClick={() => setActiveTab('comp')}
-            className={`px-3 py-1 text-xs rounded-md ${activeTab === 'comp' ? 'bg-[#333333]' : 'bg-transparent'
-              }`}
+            className={`px-3 py-1 text-xs rounded-md ${activeTab === 'comp' ? 'bg-[#333333]' : 'bg-transparent'}`}
           >
             Compressor
           </button>
         </div>
         <div className="flex items-center space-x-2">
           <button
+            onClick={toggleCapture}
+            className={`px-3 py-1 rounded-md text-xs ${isCapturing ? 'bg-[#D32F2F] text-white' : 'bg-[#2196F3] text-white'}`}
+          >
+            {isCapturing ? 'Stop Capture' : 'Start Capture'}
+          </button>
+          <button
             onClick={toggleEqualizer}
-            className={`px-3 py-1 rounded-md text-xs ${isEnabled ? 'bg-[#1DB954] text-white' : 'bg-[#333333] text-gray-300'
-              }`}
+            className={`px-3 py-1 rounded-md text-xs ${isEnabled ? 'bg-[#1DB954] text-white' : 'bg-[#333333] text-gray-300'}`}
+            disabled={!isCapturing}
           >
             {isEnabled ? 'On' : 'Off'}
           </button>
@@ -267,7 +304,7 @@ const Equalizer: React.FC<EqualizerProps> = ({
                     writingMode: 'vertical-lr' as any,
                     WebkitAppearance: 'slider-vertical' /* WebKit */
                   }}
-                  disabled={!isEnabled}
+                  disabled={!isEnabled || !isCapturing}
                 />
                 <div className="text-[10px] text-center mt-1">
                   <div className="font-medium">{freq < 1000 ? freq : `${freq / 1000}k`}</div>
@@ -283,7 +320,7 @@ const Equalizer: React.FC<EqualizerProps> = ({
                 key={preset}
                 onClick={() => applyPreset(preset as keyof typeof presets)}
                 className="px-2 py-1 bg-[#333333] hover:bg-[#444444] rounded text-xs uppercase"
-                disabled={!isEnabled}
+                disabled={!isEnabled || !isCapturing}
               >
                 {preset}
               </button>
@@ -298,9 +335,8 @@ const Equalizer: React.FC<EqualizerProps> = ({
             <h3 className="text-sm font-semibold">Compressor</h3>
             <button
               onClick={toggleCompressor}
-              className={`px-2 py-1 rounded-md text-xs ${compressorEnabled ? 'bg-[#1DB954] text-white' : 'bg-[#333333] text-gray-300'
-                }`}
-              disabled={!isEnabled}
+              className={`px-2 py-1 rounded-md text-xs ${compressorEnabled ? 'bg-[#1DB954] text-white' : 'bg-[#333333] text-gray-300'}`}
+              disabled={!isEnabled || !isCapturing}
             >
               {compressorEnabled ? 'On' : 'Off'}
             </button>
@@ -332,7 +368,7 @@ const Equalizer: React.FC<EqualizerProps> = ({
                   value={value}
                   onChange={(e) => handleCompressorChange(key as keyof typeof compressorSettings, parseFloat(e.target.value))}
                   className="w-full"
-                  disabled={!isEnabled || !compressorEnabled}
+                  disabled={!isEnabled || !compressorEnabled || !isCapturing}
                 />
                 <span className="text-[10px] mt-1">{
                   key === 'threshold' ? `${value} dB` :
@@ -343,6 +379,17 @@ const Equalizer: React.FC<EqualizerProps> = ({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Instructions */}
+      {!isCapturing && (
+        <div className="text-xs p-3 bg-[#333333] mt-2 rounded">
+          <p className="mb-2"><strong>Note:</strong> This component requires the Chrome Tab Capture API, which is only available in Chrome extensions.</p>
+          <p>To use this in a Chrome extension, make sure to add the following to your manifest.json:</p>
+          <pre className="bg-[#222222] p-2 rounded mt-1 overflow-x-auto">
+            {`"permissions": ["tabCapture", "activeTab"]`}
+          </pre>
         </div>
       )}
     </div>

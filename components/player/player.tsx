@@ -72,21 +72,35 @@ const Player: React.FC<PlayerProps> = ({
             <div className="p-4 flex items-center justify-between">
                 {/* Song info - left side */}
                 <Link href='/player' className="flex items-center space-x-4 w-1/3">
-                    {/* Album art placeholder */}
+                    {/* Album art */}
                     <div className="w-12 h-12 bg-[#282828] rounded-md overflow-hidden flex items-center justify-center flex-shrink-0 border border-[#333333]">
-                        <svg className="h-6 w-6 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M9 18V5l12-2v13"></path>
-                            <circle cx="6" cy="18" r="3"></circle>
-                            <circle cx="18" cy="16" r="3"></circle>
-                        </svg>
+                        {currentSong && currentSong.artwork ? (
+                            <img 
+                                src={currentSong.artwork} 
+                                alt={currentSong.title || currentSong.name} 
+                                className="w-full h-full object-cover"
+                            />
+                        ) : (
+                            <svg className="h-6 w-6 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M9 18V5l12-2v13"></path>
+                                <circle cx="6" cy="18" r="3"></circle>
+                                <circle cx="18" cy="16" r="3"></circle>
+                            </svg>
+                        )}
                     </div>
 
                     <div className="min-w-0">
                         <h2 className="text-sm font-bold truncate">
-                            {currentSong ? currentSong.name.replace('.mp3', '') : "No Song Playing"}
+                            {currentSong ? (currentSong.title || currentSong.name.replace('.mp3', '')) : "No Song Playing"}
                         </h2>
                         <p className="text-xs text-gray-400 truncate">
-                            {currentSong ? formatDate(currentSong.lastModified) : "Select a song to play"}
+                            {currentSong ? 
+                                (currentSong.artist ? 
+                                    `${currentSong.artist}${currentSong.album ? ` • ${currentSong.album}` : ''}` 
+                                    : formatDate(currentSong.lastModified)
+                                ) 
+                                : "Select a song to play"
+                            }
                         </p>
                     </div>
                 </Link>
@@ -190,8 +204,17 @@ const Player: React.FC<PlayerProps> = ({
                     </button>
 
                     {currentSong && (
-                        <div className="text-xs text-gray-400 bg-[#282828] px-2 py-1 rounded">
-                            {currentSong.size ? `${Math.round(currentSong.size / 1024 / 1024 * 10) / 10} MB` : ""}
+                        <div className="flex space-x-2">
+                            {currentSong.duration && (
+                                <div className="text-xs text-gray-400 bg-[#282828] px-2 py-1 rounded">
+                                    {formatTime(currentSong.duration)}
+                                </div>
+                            )}
+                            {currentSong.size && (
+                                <div className="text-xs text-gray-400 bg-[#282828] px-2 py-1 rounded">
+                                    {`${Math.round(currentSong.size / 1024 / 1024 * 10) / 10} MB`}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -213,7 +236,6 @@ const Player: React.FC<PlayerProps> = ({
                             </button>
                         </div>
                         <Equalizer
-                            audioElement={audioElement}
                             onEnableChange={onToggleEqualizer}
                         />
                     </div>

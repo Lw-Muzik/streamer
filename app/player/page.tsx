@@ -35,7 +35,11 @@ const PlayerPage = () => {
 
                 {/* Equalizer Component */}
                 <div className="mb-8">
-                    <Equalizer audioElement={audioElement} />
+                    <Equalizer onEnableChange={
+                        (enabled) => {
+                            // setEqualizerEnabled(enabled);
+                        }
+                    } />
                 </div>
 
                 {/* Audio Information */}

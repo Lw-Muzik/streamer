@@ -6,6 +6,13 @@ export interface SongItem {
     extension?: string;
     lastModified?: string;
     local?: boolean;
+    // Metadata fields
+    title?: string;
+    artist?: string;
+    album?: string;
+    year?: number;
+    duration?: number;
+    artwork?: string;
 }
 
 export interface FolderItem {

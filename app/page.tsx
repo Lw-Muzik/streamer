@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SongItem, FolderItem } from '@/types';
 import Player from '@/components/player/player';
+import * as musicMetadata from 'music-metadata';
+
 export default function Home() {
   const [items, setItems] = useState<SongItem[]>([]);
   const [playlist, setPlaylist] = useState<SongItem[]>([]);
@@ -19,6 +21,7 @@ export default function Home() {
   const [uploadStatus, setUploadStatus] = useState<{ success: boolean, message: string } | null>(null);
   const [viewMode, setViewMode] = useState<'server' | 'local'>('server');
   const [equalizerEnabled, setEqualizerEnabled] = useState<boolean>(false);
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState<boolean>(false);
 
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
 
@@ -101,6 +104,8 @@ export default function Home() {
       const mp3Files = data.items.filter(
         (item: SongItem) => item.type === 'file' && item.extension === '.mp3'
       );
+      
+      // Set initial playlist without metadata
       setPlaylist(mp3Files);
 
       // Filter for directories
@@ -108,8 +113,90 @@ export default function Home() {
         (item: SongItem) => item.type === 'directory'
       ) as FolderItem[];
       setFolders(directories);
+      
+      // Extract metadata for server files
+      if (mp3Files.length > 0) {
+        setIsLoadingMetadata(true);
+        console.log("Starting metadata extraction for", mp3Files.length, "files");
+        
+        // Process files in batches to avoid overwhelming the browser
+        const batchSize = 5;
+        const enhancedFiles: SongItem[] = [...mp3Files]; // Start with original files
+        
+        for (let i = 0; i < mp3Files.length; i += batchSize) {
+          const batch = mp3Files.slice(i, i + batchSize);
+          const batchResults = await Promise.all(
+            batch.map(async (file: SongItem, index: number) => {
+              try {
+                // Fetch the file for metadata extraction
+                const fileUrl = `http://${serverAddress}:8080/download?file=${file.path}`;
+                console.log(`Fetching file ${i + index + 1}/${mp3Files.length}: ${file.name}`);
+                
+                const response = await fetch(fileUrl);
+                if (!response.ok) {
+                  throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+                }
+                
+                const arrayBuffer = await response.arrayBuffer();
+                console.log(`Processing metadata for: ${file.name} (${arrayBuffer.byteLength} bytes)`);
+                
+                // Parse metadata
+                const metadata = await musicMetadata.parseBuffer(
+                  new Uint8Array(arrayBuffer),
+                  { mimeType: 'audio/mpeg' }
+                );
+                
+                // Extract metadata
+                const { common, format } = metadata;
+                console.log(`Extracted metadata for: ${file.name}`, { 
+                  title: common.title, 
+                  artist: common.artist,
+                  hasPicture: common.picture && common.picture.length > 0
+                });
+                
+                // Create a blob URL for the picture if it exists
+                let pictureUrl = '';
+                if (common.picture && common.picture.length > 0) {
+                  const picture = common.picture[0];
+                  const blob = new Blob([picture.data], { type: picture.format });
+                  pictureUrl = URL.createObjectURL(blob);
+                  console.log(`Created artwork URL for: ${file.name}`);
+                }
+                
+                return {
+                  ...file,
+                  title: common.title || file.name,
+                  artist: common.artist || 'Unknown Artist',
+                  album: common.album || 'Unknown Album',
+                  year: common.year,
+                  duration: format.duration,
+                  artwork: pictureUrl,
+                };
+              } catch (error) {
+                console.error(`Error extracting metadata for ${file.name}:`, error);
+                return {
+                  ...file,
+                  type: 'file' as 'file',
+                };
+              }
+            })
+          );
+          
+          // Update the enhanced files array with the batch results
+          batchResults.forEach((result, idx) => {
+            enhancedFiles[i + idx] = result;
+          });
+          
+          // Update the playlist with the current progress
+          setPlaylist([...enhancedFiles]);
+        }
+        
+        console.log("Metadata extraction complete");
+        setIsLoadingMetadata(false);
+      }
     } catch (error) {
       console.error('Error fetching songs:', error);
+      setIsLoadingMetadata(false);
     }
   };
 
@@ -195,53 +282,136 @@ export default function Home() {
     }
 
     try {
+      setIsLoadingMetadata(true);
+      console.log("Starting local file processing");
+      
       // Process MP3 files
       const mp3Files: SongItem[] = [];
-      let fileCount = 0;
-
-      Array.from(files).forEach(file => {
-        if (file.name.toLowerCase().endsWith('.mp3')) {
-          // Create a local URL for the file
-          const objectUrl = URL.createObjectURL(file);
-
-          // Create a SongItem from the file
-          const songItem: SongItem = {
-            name: file.name,
-            path: objectUrl,
-            type: 'file',
-            extension: '.mp3',
-            size: file.size,
-            lastModified: new Date(file.lastModified).toISOString(),
-            // Add local property to identify local files
-            local: true
-          };
-
-          mp3Files.push(songItem);
-          fileCount++;
-        }
-      });
-
-      if (fileCount > 0) {
-        setLocalMusic(prev => [...mp3Files, ...prev]);
-        setUploadStatus({
-          success: true,
-          message: `Added ${fileCount} MP3 files`
-        });
-
-        // Switch to local view mode
-        setViewMode('local');
-      } else {
+      const mp3FilesArray = Array.from(files).filter(file => file.name.toLowerCase().endsWith('.mp3'));
+      console.log(`Found ${mp3FilesArray.length} MP3 files to process`);
+      
+      if (mp3FilesArray.length === 0) {
         setUploadStatus({
           success: false,
           message: "No MP3 files found in selected folder"
         });
+        setIsLoadingMetadata(false);
+        return;
       }
+      
+      // Process files in batches
+      const batchSize = 5;
+      let processedCount = 0;
+      
+      const processNextBatch = async (startIndex: number) => {
+        const endIndex = Math.min(startIndex + batchSize, mp3FilesArray.length);
+        const batch = mp3FilesArray.slice(startIndex, endIndex);
+        
+        const batchResults = await Promise.all(
+          batch.map(async (file: File) => {
+            try {
+              console.log(`Processing local file: ${file.name}`);
+              // Create a local URL for the file
+              const objectUrl = URL.createObjectURL(file);
+              
+              // Read the file for metadata extraction
+              const arrayBuffer = await file.arrayBuffer();
+              console.log(`Reading metadata for: ${file.name} (${arrayBuffer.byteLength} bytes)`);
+              
+              // Parse metadata
+              const metadata = await musicMetadata.parseBuffer(
+                new Uint8Array(arrayBuffer),
+                { mimeType: 'audio/mpeg' }
+              );
+              
+              // Extract metadata
+              const { common, format } = metadata;
+              console.log(`Extracted metadata for: ${file.name}`, { 
+                title: common.title, 
+                artist: common.artist,
+                hasPicture: common.picture && common.picture.length > 0
+              });
+              
+              // Create a blob URL for the picture if it exists
+              let pictureUrl = '';
+              if (common.picture && common.picture.length > 0) {
+                const picture = common.picture[0];
+                const blob = new Blob([picture.data], { type: picture.format });
+                pictureUrl = URL.createObjectURL(blob);
+                console.log(`Created artwork URL for: ${file.name}`);
+              }
+              
+              // Create a SongItem from the file with metadata
+              const songItem: SongItem = {
+                name: file.name,
+                path: objectUrl,
+                type: 'file' as 'file',
+                extension: '.mp3',
+                size: file.size,
+                lastModified: new Date(file.lastModified).toISOString(),
+                local: true,
+                title: common.title || file.name,
+                artist: common.artist || 'Unknown Artist',
+                album: common.album || 'Unknown Album',
+                year: common.year,
+                duration: format.duration,
+                artwork: pictureUrl,
+              };
+
+              return songItem;
+            } catch (error) {
+              console.error(`Error processing ${file.name}:`, error);
+              // Return a basic SongItem without metadata
+              return {
+                name: file.name,
+                path: URL.createObjectURL(file),
+                type: 'file' as 'file',
+                extension: '.mp3',
+                size: file.size,
+                lastModified: new Date(file.lastModified).toISOString(),
+                local: true
+              };
+            }
+          })
+        );
+        
+        // Add processed files to our collection
+        mp3Files.push(...batchResults);
+        processedCount += batch.length;
+        
+        // Update UI with current progress
+        setLocalMusic(prev => [...mp3Files, ...prev]);
+        
+        // Process next batch or finish
+        if (processedCount < mp3FilesArray.length) {
+          await processNextBatch(endIndex);
+        } else {
+          finishProcessing();
+        }
+      };
+      
+      const finishProcessing = () => {
+        console.log(`Completed processing ${processedCount} files`);
+        setUploadStatus({
+          success: true,
+          message: `Added ${processedCount} MP3 files`
+        });
+
+        // Switch to local view mode
+        setViewMode('local');
+        setIsLoadingMetadata(false);
+      };
+      
+      // Start processing the first batch
+      processNextBatch(0);
+      
     } catch (error) {
       console.error("Error processing files:", error);
       setUploadStatus({
         success: false,
         message: "Error processing files"
       });
+      setIsLoadingMetadata(false);
     }
   };
 
@@ -271,9 +441,19 @@ export default function Home() {
         if (song.local && song.path) {
           URL.revokeObjectURL(song.path);
         }
+        if (song.artwork) {
+          URL.revokeObjectURL(song.artwork);
+        }
+      });
+      
+      // Also clean up artwork URLs for server playlist
+      playlist.forEach(song => {
+        if (song.artwork) {
+          URL.revokeObjectURL(song.artwork);
+        }
       });
     };
-  }, [localMusic]);
+  }, [localMusic, playlist]);
 
   // Toggle equalizer enabled state
   const toggleEqualizer = (enabled: boolean) => {
@@ -316,7 +496,7 @@ export default function Home() {
               onClick={fetchData}
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               Fetch
             </button>
@@ -455,8 +635,8 @@ export default function Home() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full">
-        {/* Top Bar */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        {/* Search and controls */}
         <div className="bg-[#121212] p-4 flex items-center">
           <div className="relative flex-1 max-w-xl">
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -502,6 +682,15 @@ export default function Home() {
 
               <div className="flex-1 overflow-hidden">
                 <ul className="h-full overflow-y-auto custom-scrollbar">
+                  {isLoadingMetadata && (
+                    <div className="flex items-center justify-center h-20 text-gray-400">
+                      <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Loading metadata...
+                    </div>
+                  )}
                   {displayedMusic.length > 0 ? (
                     displayedMusic.map((item, index) => (
                       <li
@@ -514,38 +703,47 @@ export default function Home() {
                       >
                         <div className="flex items-center">
                           <div
-                            className="w-10 h-10 flex items-center justify-center bg-[#333333] rounded-md mr-3 flex-shrink-0"
+                            className="w-10 h-10 flex items-center justify-center bg-[#333333] rounded-md mr-3 flex-shrink-0 overflow-hidden"
                           >
-                            <svg
-                              className="h-5 w-5 text-gray-400"
-                              xmlns="http://www.w3.org/2000/svg"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M9 18V5l12-2v13"></path>
-                              <circle cx="6" cy="18" r="3"></circle>
-                              <circle cx="18" cy="16" r="3"></circle>
-                            </svg>
+                            {item.artwork ? (
+                              <img 
+                                src={item.artwork} 
+                                alt={item.title || item.name}
+                                className="w-full h-full object-cover" 
+                              />
+                            ) : (
+                              <svg
+                                className="h-5 w-5 text-gray-400"
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M9 18V5l12-2v13"></path>
+                                <circle cx="6" cy="18" r="3"></circle>
+                                <circle cx="18" cy="16" r="3"></circle>
+                              </svg>
+                            )}
                           </div>
                           <div className="min-w-0">
                             <p className="font-medium text-white truncate">
-                              {item.name.replace('.mp3', '')}
+                              {item.title || item.name}
                             </p>
                             <p className="text-xs text-gray-400">
-                              {item.lastModified
-                                ? formatDate(item.lastModified)
-                                : "Unknown"}
+                              {item.artist || 'Unknown Artist'} • {item.album || 'Unknown Album'}
                             </p>
                           </div>
                         </div>
                         <span
                           className="text-xs bg-[#333333] text-gray-300 px-2 py-1 rounded-md ml-2 flex-shrink-0"
                         >
-                          {item.size ? formatSize(item.size) : "Unknown"}
+                          {item.duration ? 
+                            `${Math.floor(item.duration / 60)}:${Math.floor(item.duration % 60).toString().padStart(2, '0')}` : 
+                            formatSize(item.size || 0)
+                          }
                         </span>
                       </li>
                     ))
@@ -631,12 +829,8 @@ export default function Home() {
                             </svg>
                           </div>
                           <div className="min-w-0">
-                            <p className="font-medium text-white truncate">
-                              {folder.name}
-                            </p>
-                            <p className="text-xs text-gray-400 truncate">
-                              {folder.path}
-                            </p>
+                            <p className="font-medium text-white truncate">{folder.name}</p>
+                            <p className="text-xs text-gray-400 truncate mt-1">{folder.path}</p>
                           </div>
                         </div>
                       </div>
