@@ -2,35 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { SongItem } from '@/types';
 import Link from 'next/link';
 import Equalizer from '../equalizer.tsx/equalizer';
+import usePlayer from '@/hooks/usePlayer';
 
 interface PlayerProps {
-    currentSong: SongItem | null;
-    isPlaying: boolean;
-    songProgress: number;
-    onNextSong: () => void;
-    onPrevSong: () => void;
-    onTogglePlayPause: () => void;
-    onToggleEqualizer: (enabled: boolean) => void;
-    equalizerEnabled: boolean;
-    playlist?: SongItem[];
+
 }
 
-const Player: React.FC<PlayerProps> = ({
-    currentSong,
-    isPlaying,
-    songProgress,
-    onNextSong,
-    onPrevSong,
-    onTogglePlayPause,
-    onToggleEqualizer,
-    equalizerEnabled,
-    playlist = []
-}) => {
+const Player: React.FC<PlayerProps> = () => {
     const [currentTime, setCurrentTime] = useState<number>(0);
     const [duration, setDuration] = useState<number>(0);
     const [showEqualizerModal, setShowEqualizerModal] = useState<boolean>(false);
     const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
-
+    const { nextSong, previousSong, songProgress, isPlaying, currentSong, togglePlayPause } = usePlayer();
     useEffect(() => {
         // Update current time and duration
         const audioEl = document.getElementById('audio') as HTMLAudioElement;
@@ -43,11 +26,18 @@ const Player: React.FC<PlayerProps> = ({
 
             audioEl.addEventListener('timeupdate', updateTimes);
             audioEl.addEventListener('loadedmetadata', updateTimes);
-
+            navigator.mediaSession.setActionHandler('nexttrack', function (x) {
+                nextSong()
+            })
+            navigator.mediaSession.setActionHandler('previoustrack', function (action) {
+                console.log(action.action)
+                previousSong();
+            })
             return () => {
                 audioEl.removeEventListener('timeupdate', updateTimes);
                 audioEl.removeEventListener('loadedmetadata', updateTimes);
             };
+
         }
     }, []);
 
@@ -71,13 +61,13 @@ const Player: React.FC<PlayerProps> = ({
         <div className="w-full text-white">
             <div className="p-4 flex items-center justify-between">
                 {/* Song info - left side */}
-                <Link href='/player' className="flex items-center space-x-4 w-1/3">
+                <Link href={''} className="flex items-center space-x-4 w-1/3">
                     {/* Album art */}
                     <div className="w-12 h-12 bg-[#282828] rounded-md overflow-hidden flex items-center justify-center flex-shrink-0 border border-[#333333]">
                         {currentSong && currentSong.artwork ? (
-                            <img 
-                                src={currentSong.artwork} 
-                                alt={currentSong.title || currentSong.name} 
+                            <img
+                                src={currentSong.artwork}
+                                alt={currentSong.title || currentSong.name}
                                 className="w-full h-full object-cover"
                             />
                         ) : (
@@ -94,11 +84,11 @@ const Player: React.FC<PlayerProps> = ({
                             {currentSong ? (currentSong.title || currentSong.name.replace('.mp3', '')) : "No Song Playing"}
                         </h2>
                         <p className="text-xs text-gray-400 truncate">
-                            {currentSong ? 
-                                (currentSong.artist ? 
-                                    `${currentSong.artist}${currentSong.album ? ` • ${currentSong.album}` : ''}` 
+                            {currentSong ?
+                                (currentSong.artist ?
+                                    `${currentSong.artist}${currentSong.album ? ` • ${currentSong.album}` : ''}`
                                     : formatDate(currentSong.lastModified)
-                                ) 
+                                )
                                 : "Select a song to play"
                             }
                         </p>
@@ -109,8 +99,8 @@ const Player: React.FC<PlayerProps> = ({
                 <div className="flex flex-col items-center w-1/3">
                     <div className="flex items-center space-x-4 mb-2">
                         <button
-                            onClick={onPrevSong}
-                            disabled={!currentSong}
+                            onClick={previousSong}
+                            // disabled={!currentSong}
                             className="text-gray-300 hover:text-white transition-colors disabled:opacity-50 focus:outline-none"
                             title="Previous"
                         >
@@ -121,7 +111,7 @@ const Player: React.FC<PlayerProps> = ({
                         </button>
 
                         <button
-                            onClick={onTogglePlayPause}
+                            onClick={togglePlayPause}
                             disabled={!currentSong}
                             className="bg-[#1DB954] hover:bg-[#1ed760] text-white rounded-full w-8 h-8 flex items-center justify-center transition-colors disabled:opacity-50 focus:outline-none"
                             title={isPlaying ? 'Pause' : 'Play'}
@@ -157,8 +147,8 @@ const Player: React.FC<PlayerProps> = ({
                         </button>
 
                         <button
-                            onClick={onNextSong}
-                            disabled={!currentSong}
+                            onClick={() => nextSong()}
+                            // disabled={!currentSong}
                             className="text-gray-300 hover:text-white transition-colors disabled:opacity-50 focus:outline-none"
                             title="Next"
                         >
@@ -236,7 +226,7 @@ const Player: React.FC<PlayerProps> = ({
                             </button>
                         </div>
                         <Equalizer
-                            onEnableChange={onToggleEqualizer}
+                            onEnableChange={toggleEqualizer}
                         />
                     </div>
                 </div>
