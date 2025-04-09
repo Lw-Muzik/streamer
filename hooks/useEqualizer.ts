@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAudioContext } from '@/contexts/AudioContext';
 
 // Define frequency bands for the equalizer
-const FREQUENCY_BANDS = [60, 150, 400, 1000, 3000, 8000];
+const FREQUENCY_BANDS = [32, 60, 150, 400, 1000, 4000, 16000];
 
 // Global state for the equalizer that persists across component instances
 let globalState = {
@@ -111,14 +111,14 @@ export const useEqualizer = () => {
                 } catch (e) {
                     // Ignore errors
                 }
-                
+
                 // Create the main gain node if it doesn't exist
                 if (!globalGainNode) {
                     globalGainNode = globalAudioContext.createGain();
                     globalGainNode.gain.value = 1.0;
                     console.log("Created main gain node");
                 }
-                
+
                 // Create EQ band filters
                 if (eqFilters.length === 0) {
                     console.log("Creating EQ band filters for frequencies:", FREQUENCY_BANDS);
@@ -131,7 +131,7 @@ export const useEqualizer = () => {
                         return filter;
                     });
                 }
-                
+
                 // Create bass filter if it doesn't exist
                 if (!bassBiquadFilter && globalAudioContext) {
                     bassBiquadFilter = globalAudioContext.createBiquadFilter();
@@ -140,7 +140,7 @@ export const useEqualizer = () => {
                     bassBiquadFilter.gain.value = 0.0;
                     console.log("Created bass filter");
                 }
-                
+
                 // Create treble filter if it doesn't exist
                 if (!trebleBiquadFilter && globalAudioContext) {
                     trebleBiquadFilter = globalAudioContext.createBiquadFilter();
@@ -149,37 +149,37 @@ export const useEqualizer = () => {
                     trebleBiquadFilter.gain.value = 0.0;
                     console.log("Created treble filter");
                 }
-                
+
                 // Connect the nodes in series:
                 // source -> bass -> treble -> eq bands -> gain -> destination
                 let lastNode: AudioNode = globalSourceNode;
-                
+
                 // Connect bass filter
                 if (bassBiquadFilter) {
                     lastNode.connect(bassBiquadFilter);
                     lastNode = bassBiquadFilter;
                     console.log("Connected bass filter");
                 }
-                
+
                 // Connect treble filter
                 if (trebleBiquadFilter) {
                     lastNode.connect(trebleBiquadFilter);
                     lastNode = trebleBiquadFilter;
                     console.log("Connected treble filter");
                 }
-                
+
                 // Connect each EQ band filter in series
                 eqFilters.forEach((filter, index) => {
                     lastNode.connect(filter);
                     lastNode = filter;
                     console.log(`Connected EQ band ${index} (${FREQUENCY_BANDS[index]} Hz)`);
                 });
-                
+
                 // Connect to gain node and then to destination
                 lastNode.connect(globalGainNode);
                 globalGainNode.connect(globalAudioContext.destination);
                 console.log("Connected final chain to destination");
-                
+
                 isConnected = true;
                 setConnected(true);
                 return true;
@@ -291,7 +291,7 @@ export const useEqualizer = () => {
                     console.log(`Set EQ band ${index} (${FREQUENCY_BANDS[index]} Hz) to ${values[index]} dB`);
                 }
             });
-            
+
             console.log('Applied all EQ band settings');
         }
     };
@@ -354,13 +354,13 @@ export const useEqualizer = () => {
 
             // Reset global state
             globalSourceNode = null;
-            
+
             // Update state variables
             isConnected = false;
             setConnected(false);
             setIsEnabled(false);
             globalState.isEnabled = false;
-            
+
             console.log("Equalizer fully disconnected");
         } catch (error) {
             console.error("Error disconnecting equalizer:", error);
@@ -487,7 +487,7 @@ export const useEqualizer = () => {
 
     // Track if this hook instance is still mounted
     const isMounted = useRef(true);
-    
+
     useEffect(() => {
         return () => {
             console.log('Cleaning up equalizer');
@@ -498,7 +498,7 @@ export const useEqualizer = () => {
             if (globalGainNode) {
                 globalGainNode.gain.value = 1.0; // Reset gain to normal
             }
-            
+
             // Don't update state on unmount as it can cause issues
             // The next time the component mounts, it will read from globalState
         };
@@ -507,7 +507,7 @@ export const useEqualizer = () => {
     // Only run connectEqualizer once when the hook is first initialized
     // Using a ref to track if we've already tried to connect
     const hasInitialized = useRef(false);
-    
+
     useEffect(() => {
         if (!hasInitialized.current) {
             hasInitialized.current = true;
