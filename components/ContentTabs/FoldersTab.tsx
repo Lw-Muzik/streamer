@@ -1,11 +1,20 @@
-import usePlayer from '@/hooks/usePlayer';
+import { useAppDispatch, useAppSelector } from '@/store';
 import { FolderItem } from '@/types';
 import React from 'react';
-interface FoldersIF {
+import { setPathURL, setFolderName } from '@/store/slices/playerSlice';
 
-}
+interface FoldersIF { }
+
 const FoldersTab: React.FC<FoldersIF> = () => {
-    const { displayedFolders, openFolder } = usePlayer();
+    const dispatch = useAppDispatch();
+    const { displayedFolders } = useAppSelector((state) => state.player);
+
+    const openFolder = (folder: FolderItem) => {
+        dispatch(setPathURL(folder.path));
+        localStorage.setItem('path', folder.path);
+        dispatch(setFolderName(folder.name));
+    };
+
     return (
         <div className="bg-[#181818] rounded-md overflow-hidden flex flex-col">
             <div className="p-4 border-b border-[#333333] flex items-center">

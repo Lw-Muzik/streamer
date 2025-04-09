@@ -1,8 +1,183 @@
-import usePlayer from '@/hooks/usePlayer';
+import { useAppDispatch, useAppSelector } from '@/store';
 import React from 'react';
+import {
+    setServerAddress,
+    setVolume,
+    setViewMode,
+    setUploadStatus,
+    setIsLoadingMetadata,
+    setLocalMusic,
+    setMetaDataProgress
+} from '@/store/slices/playerSlice';
+import * as musicMetadata from 'music-metadata';
 
 const SidebarComponent = () => {
-    const { serverAddress, setServerAddress, volume, fetchData, updateVolume, uploadStatus, handleFolderUpload, toggleViewMode, viewMode, metaDataProgress } = usePlayer();
+    const dispatch = useAppDispatch();
+    const {
+        serverAddress,
+        volume,
+        uploadStatus,
+        viewMode,
+        metaDataProgress,
+        localMusic
+    } = useAppSelector((state) => state.player);
+
+    const fetchData = () => {
+        localStorage.setItem('address', serverAddress);
+        // You'll need to implement the fetch logic here
+    };
+
+    const updateVolume = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newVolume = e.target.value;
+        dispatch(setVolume(newVolume));
+        localStorage.setItem('volume', newVolume);
+    };
+
+    const handleFolderUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (!files || files.length === 0) {
+            dispatch(setUploadStatus({
+                success: false,
+                message: "No files selected"
+            }));
+            return;
+        }
+
+        try {
+            dispatch(setIsLoadingMetadata(true));
+            console.log("Starting local file processing");
+
+            // Process MP3 files
+            const mp3Files: any[] = [];
+            const mp3FilesArray = Array.from(files).filter(file => file.name.toLowerCase().endsWith('.mp3'));
+            console.log(`Found ${mp3FilesArray.length} MP3 files to process`);
+
+            if (mp3FilesArray.length === 0) {
+                dispatch(setUploadStatus({
+                    success: false,
+                    message: "No MP3 files found in selected folder"
+                }));
+                dispatch(setIsLoadingMetadata(false));
+                return;
+            }
+
+            // Process files in batches
+            const batchSize = 5;
+            let processedCount = 0;
+
+            const processNextBatch = async (startIndex: number) => {
+                const endIndex = Math.min(startIndex + batchSize, mp3FilesArray.length);
+                const batch = mp3FilesArray.slice(startIndex, endIndex);
+
+                const batchResults = await Promise.all(
+                    batch.map(async (file: File) => {
+                        try {
+                            console.log(`Processing local file: ${file.name}`);
+                            // Create a local URL for the file
+                            const objectUrl = URL.createObjectURL(file);
+
+                            // Read the file for metadata extraction
+                            const arrayBuffer = await file.arrayBuffer();
+                            console.log(`Reading metadata for: ${file.name} (${arrayBuffer.byteLength} bytes)`);
+
+                            // Parse metadata
+                            const metadata = await musicMetadata.parseBuffer(
+                                new Uint8Array(arrayBuffer),
+                                { mimeType: 'audio/mpeg' }
+                            );
+
+                            // Extract metadata
+                            const { common, format } = metadata;
+                            console.log(`Extracted metadata for: ${file.name}`, {
+                                title: common.title,
+                                artist: common.artist,
+                                hasPicture: common.picture && common.picture.length > 0
+                            });
+
+                            // Create a blob URL for the picture if it exists
+                            let pictureUrl = '';
+                            if (common.picture && common.picture.length > 0) {
+                                const picture = common.picture[0];
+                                const blob = new Blob([picture.data], { type: picture.format });
+                                pictureUrl = URL.createObjectURL(blob);
+                                console.log(`Created artwork URL for: ${file.name}`);
+                            }
+
+                            // Create a SongItem from the file with metadata
+                            const songItem = {
+                                name: file.name,
+                                path: objectUrl,
+                                type: 'file' as 'file',
+                                extension: '.mp3',
+                                size: file.size,
+                                lastModified: new Date(file.lastModified).toISOString(),
+                                local: true,
+                                title: common.title || file.name,
+                                artist: common.artist || 'Unknown Artist',
+                                album: common.album || 'Unknown Album',
+                                year: common.year,
+                                duration: format.duration,
+                                artwork: pictureUrl,
+                            };
+
+                            return songItem;
+                        } catch (error) {
+                            console.error(`Error processing ${file.name}:`, error);
+                            // Return a basic SongItem without metadata
+                            return {
+                                name: file.name,
+                                path: URL.createObjectURL(file),
+                                type: 'file' as 'file',
+                                extension: '.mp3',
+                                size: file.size,
+                                lastModified: new Date(file.lastModified).toISOString(),
+                                local: true
+                            };
+                        }
+                    })
+                );
+
+                // Add processed files to our collection
+                mp3Files.push(...batchResults);
+                processedCount += batch.length;
+
+                // Update UI with current progress
+                dispatch(setLocalMusic([...mp3Files, ...localMusic]));
+                dispatch(setMetaDataProgress(processedCount / mp3FilesArray.length));
+
+                // Process next batch or finish
+                if (processedCount < mp3FilesArray.length) {
+                    await processNextBatch(endIndex);
+                } else {
+                    finishProcessing();
+                }
+            };
+
+            const finishProcessing = () => {
+                console.log(`Completed processing ${processedCount} files`);
+                dispatch(setUploadStatus({
+                    success: true,
+                    message: `Added ${processedCount} MP3 files`
+                }));
+
+                // Switch to local view mode
+                dispatch(setViewMode('local'));
+                dispatch(setIsLoadingMetadata(false));
+            };
+
+            // Start processing the first batch
+            processNextBatch(0);
+
+        } catch (error) {
+            console.error("Error processing files:", error);
+            dispatch(setUploadStatus({
+                success: false,
+                message: "Error processing files"
+            }));
+            dispatch(setIsLoadingMetadata(false));
+        }
+    };
+
     return (
         <div className="w-64 bg-[#121212] p-6 flex flex-col h-full">
             <h1 className="text-2xl font-bold mb-8 text-white">Ethereal Tunes</h1>
@@ -14,7 +189,7 @@ const SidebarComponent = () => {
                     <input
                         type="text"
                         value={serverAddress}
-                        onChange={(e) => setServerAddress(e.target.value)}
+                        onChange={(e) => dispatch(setServerAddress(e.target.value))}
                         placeholder="Server Address"
                         className="bg-[#282828] text-sm p-3 rounded-md outline-none border border-[#333333] focus:border-[#1DB954] placeholder:text-gray-500 w-full text-white"
                     />
@@ -74,7 +249,7 @@ const SidebarComponent = () => {
                             ? 'bg-[#1DB954] hover:bg-[#1ed760]'
                             : 'bg-[#333333] hover:bg-[#444444]'
                             }`}
-                        onClick={() => toggleViewMode('local')}
+                        onClick={() => dispatch(setViewMode('local'))}
                     >
                         <svg
                             className="w-4 h-4 mr-2"
@@ -95,7 +270,7 @@ const SidebarComponent = () => {
                             ? 'bg-[#1DB954] hover:bg-[#1ed760]'
                             : 'bg-[#333333] hover:bg-[#444444]'
                             }`}
-                        onClick={() => toggleViewMode('server')}
+                        onClick={() => dispatch(setViewMode('server'))}
                     >
                         <svg
                             className="w-4 h-4 mr-2"
@@ -135,15 +310,7 @@ const SidebarComponent = () => {
                 </div>
             </div>
 
-            {/* Current Folder */}
-            {/* <div className="mb-6">
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-3">Current Folder</h2>
-                <div className="text-sm bg-[#282828] p-3 rounded-md border border-[#333333] truncate">
-                    {viewMode === 'local' ? 'Local Music' : folderName}
-                </div>
-            </div> */}
-
-            {/* Folders */}
+            {/* Loading Progress */}
             <div className="overflow-hidden flex flex-col">
                 <h2 className="text-sm font-semibold text-capitalise text-gray-400 mb-3">{'Loading progress ' + (metaDataProgress * 100) + ' %'}</h2>
                 <div className="flex-1 h-1 bg-[#ba8080] round-sm overflow-hidden">

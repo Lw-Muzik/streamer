@@ -1,29 +1,54 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { SongItem, FolderItem } from '@/types';
-import Player from '@/components/player/player';
 import * as musicMetadata from 'music-metadata';
+import { useAppDispatch, useAppSelector } from '@/store';
+import { useAudioContext } from '@/contexts/AudioContext';
+import {
+    setItems,
+    setPlaylist,
+    setFolders,
+    setDisplayedMusic,
+    setDisplayedFolders,
+    setCurrentSong,
+    setIsPlaying,
+    setSongProgress,
+    setVolume,
+    setSearch,
+    setPathURL,
+    setFolderName,
+    setServerAddress,
+    setLocalMusic,
+    setUploadStatus,
+    setViewMode,
+    setEqualizerEnabled,
+    setIsLoadingMetadata,
+    setMetaDataProgress,
+} from '@/store/slices/playerSlice';
 
-
-export default function Home() {
-    const [items, setItems] = useState<SongItem[]>([]);
-    const [playlist, setPlaylist] = useState<SongItem[]>([]);
-    const [folders, setFolders] = useState<FolderItem[]>([]);
-    const [currentSong, setCurrentSong] = useState<SongItem | null>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
-    const [songProgress, setSongProgress] = useState(0);
-    const [volume, setVolume] = useState('0.17');
-    const [search, setSearch] = useState('');
-    const [pathURL, setPathURL] = useState('/storage/emulated/0/Music/');
-    const [folderName, setFolderName] = useState('/Music/04 April');
-    const [serverAddress, setServerAddress] = useState('');
-    const [localMusic, setLocalMusic] = useState<SongItem[]>([]);
-    const [uploadStatus, setUploadStatus] = useState<{ success: boolean, message: string } | null>(null);
-    const [viewMode, setViewMode] = useState<'server' | 'local'>('server');
-    const [equalizerEnabled, setEqualizerEnabled] = useState<boolean>(false);
-    const [isLoadingMetadata, setIsLoadingMetadata] = useState<boolean>(false);
-    const [metaDataProgress, setMetaDataProgress] = React.useState(0)
-
-    const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+export default function usePlayer() {
+    const dispatch = useAppDispatch();
+    const { getAudioElement } = useAudioContext();
+    const {
+        items,
+        playlist,
+        folders,
+        displayedMusic,
+        displayedFolders,
+        currentSong,
+        isPlaying,
+        songProgress,
+        volume,
+        search,
+        pathURL,
+        folderName,
+        serverAddress,
+        localMusic,
+        uploadStatus,
+        viewMode,
+        equalizerEnabled,
+        isLoadingMetadata,
+        metaDataProgress,
+    } = useAppSelector((state) => state.player);
 
     useEffect(() => {
         // Initialize from localStorage
@@ -31,11 +56,10 @@ export default function Home() {
         const savedAddress = localStorage.getItem('address');
         const savedVolume = localStorage.getItem('volume');
 
-        setPathURL(savedPath || '/storage/emulated/0/Music/');
-        setServerAddress(savedAddress || '192.168.7.221');
-        setVolume(savedVolume || '0.17');
-
-    }, []);
+        dispatch(setPathURL(savedPath || '/storage/emulated/0/Music/'));
+        dispatch(setServerAddress(savedAddress || '192.168.7.221'));
+        dispatch(setVolume(savedVolume || '0.17'));
+    }, [dispatch]);
 
     useEffect(() => {
         // Fetch data after serverAddress or pathURL changes
@@ -45,15 +69,41 @@ export default function Home() {
     }, [serverAddress, pathURL]);
 
     useEffect(() => {
-        // Set volume when audio element and volume state are available
-        if (audioPlayerRef.current) {
-            audioPlayerRef.current.volume = parseFloat(volume);
+        // Update displayed music based on view mode and search
+        if (viewMode === 'local') {
+            const filteredLocalMusic = localMusic.filter(song =>
+                song.name.toLowerCase().includes(search.toLowerCase()) ||
+                (song.title && song.title.toLowerCase().includes(search.toLowerCase()))
+            );
+            dispatch(setDisplayedMusic(filteredLocalMusic));
+        } else {
+            const filteredPlaylist = playlist.filter(song =>
+                song.name.toLowerCase().includes(search.toLowerCase()) ||
+                (song.title && song.title.toLowerCase().includes(search.toLowerCase()))
+            );
+            dispatch(setDisplayedMusic(filteredPlaylist));
         }
-    }, [volume, audioPlayerRef.current]);
+    }, [viewMode, search, playlist, localMusic, dispatch]);
+
+    useEffect(() => {
+        // Update displayed folders based on search
+        const filteredFolders = folders.filter(folder =>
+            folder.name.toLowerCase().includes(search.toLowerCase())
+        );
+        dispatch(setDisplayedFolders(filteredFolders));
+    }, [search, folders, dispatch]);
+
+    useEffect(() => {
+        // Set volume when audio element and volume state are available
+        const audioElement = getAudioElement();
+        if (audioElement) {
+            audioElement.volume = parseFloat(volume);
+        }
+    }, [volume, getAudioElement]);
 
     useEffect(() => {
         // Add ended event listener
-        const audioElement = audioPlayerRef.current;
+        const audioElement = getAudioElement();
         if (audioElement) {
             const handleEnded = () => nextSong();
             audioElement.addEventListener('ended', handleEnded);
@@ -62,7 +112,7 @@ export default function Home() {
             const handleTimeUpdate = () => {
                 if (audioElement.duration) {
                     const progress = (audioElement.currentTime / audioElement.duration) * 100;
-                    setSongProgress(progress || 0);
+                    dispatch(setSongProgress(progress || 0));
                 }
             };
             audioElement.addEventListener('timeupdate', handleTimeUpdate);
@@ -72,12 +122,12 @@ export default function Home() {
                 audioElement.removeEventListener('timeupdate', handleTimeUpdate);
             };
         }
-    }, [audioPlayerRef.current, currentSong]);
+    }, [currentSong, dispatch, getAudioElement]);
 
     const openFolder = (folder: FolderItem) => {
-        setPathURL(folder.path);
+        dispatch(setPathURL(folder.path));
         localStorage.setItem('path', folder.path);
-        setFolderName(folder.name);
+        dispatch(setFolderName(folder.name));
     };
 
     const fetchData = () => {
@@ -89,11 +139,9 @@ export default function Home() {
         const baseURL = `http://${serverAddress}:8080?path=${pathURL}`;
         console.log(baseURL);
         try {
-            const response = await fetch(
-                baseURL
-            );
+            const response = await fetch(baseURL);
             const data = await response.json();
-            setItems(data.items);
+            dispatch(setItems(data.items));
 
             // Filter for mp3 files
             const mp3Files = data.items.filter(
@@ -101,17 +149,19 @@ export default function Home() {
             );
 
             // Set initial playlist without metadata
-            setPlaylist(mp3Files);
+            dispatch(setPlaylist(mp3Files));
+            dispatch(setDisplayedMusic(mp3Files));
 
             // Filter for directories
             const directories = data.items.filter(
                 (item: SongItem) => item.type === 'directory'
             ) as FolderItem[];
-            setFolders(directories);
+            dispatch(setFolders(directories));
+            dispatch(setDisplayedFolders(directories));
 
             // Extract metadata for server files
             if (mp3Files.length > 0) {
-                setIsLoadingMetadata(true);
+                dispatch(setIsLoadingMetadata(true));
                 console.log("Starting metadata extraction for", mp3Files.length, "files");
 
                 // Process files in batches to avoid overwhelming the browser
@@ -125,7 +175,7 @@ export default function Home() {
                             try {
                                 // Fetch the file for metadata extraction
                                 const fileUrl = `http://${serverAddress}:8080/download?file=${file.path}`;
-                                setMetaDataProgress(parseInt(((i + index + 1) / mp3Files.length).toFixed(1)));
+                                dispatch(setMetaDataProgress(parseInt(((i + index + 1) / mp3Files.length).toFixed(1))));
 
                                 const response = await fetch(fileUrl);
                                 if (!response.ok) {
@@ -173,8 +223,6 @@ export default function Home() {
                                     ...file,
                                     type: 'file' as 'file',
                                 };
-                            } finally {
-                                // setMetaDataProgress(0);
                             }
                         })
                     );
@@ -185,45 +233,95 @@ export default function Home() {
                     });
 
                     // Update the playlist with the current progress
-                    setPlaylist([...enhancedFiles]);
+                    dispatch(setPlaylist([...enhancedFiles]));
+                    dispatch(setDisplayedMusic([...enhancedFiles]));
                 }
 
                 console.log("Metadata extraction complete");
-                setIsLoadingMetadata(false);
+                dispatch(setIsLoadingMetadata(false));
             }
         } catch (error) {
             console.error('Error fetching songs:', error);
-            setIsLoadingMetadata(false);
+            dispatch(setIsLoadingMetadata(false));
         }
     };
-
 
     const updateVolume = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newVolume = e.target.value;
-        setVolume(newVolume);
+        dispatch(setVolume(newVolume));
         localStorage.setItem('volume', newVolume);
 
-        if (audioPlayerRef.current) {
-            audioPlayerRef.current.volume = parseFloat(newVolume);
+        const audioElement = getAudioElement();
+        if (audioElement) {
+            audioElement.volume = parseFloat(newVolume);
         }
     };
-    const playSongFromPlaylist = (index: number) => {
-        const song = playlist[index];
-        setCurrentSong(song);
 
-        if (audioPlayerRef.current) {
-            const url = `http://${serverAddress}:8080/download?file=${song.path}`;
-            audioPlayerRef.current.src = url;
-            audioPlayerRef.current.play()
-                .then(() => setIsPlaying(true))
-                .catch(err => console.error('Error playing audio:', err));
+    const playSongFromPlaylist = (index: number) => {
+        const song = viewMode === 'local' ? localMusic[index] : playlist[index];
+        if (!song) {
+            console.error('No song found at index:', index);
+            return;
+        }
+
+        dispatch(setCurrentSong(song));
+
+        const audioElement = getAudioElement();
+        if (audioElement) {
+            const isLocalSong = viewMode === 'local' || song.local === true;
+            const url = isLocalSong ? song.path : `http://${serverAddress}:8080/download?file=${encodeURIComponent(song.path)}`;
+            console.log('Playing song:', song.name, 'from URL:', url);
+
+            // Reset the audio element
+            audioElement.pause();
+            audioElement.currentTime = 0;
+
+            // Set the new source
+            audioElement.src = url;
+            audioElement.crossOrigin = isLocalSong ? 'anonymous' : 'use-credentials';
+            audioElement.load();
+
+            // Add error listener for debugging
+            const errorHandler = (e: Event) => {
+                console.error('Audio playback error:', e);
+                const audioError = e.target as HTMLAudioElement;
+                console.error('Audio error details:', {
+                    error: audioError.error,
+                    networkState: audioError.networkState,
+                    readyState: audioError.readyState
+                });
+            };
+
+            audioElement.addEventListener('error', errorHandler, { once: true });
+
+            // Try to play
+            const playPromise = audioElement.play();
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        console.log('Playback started successfully');
+                        dispatch(setIsPlaying(true));
+                    })
+                    .catch(err => {
+                        console.error('Error playing audio:', err);
+                        // Try to play again after a short delay
+                        setTimeout(() => {
+                            audioElement.play()
+                                .then(() => dispatch(setIsPlaying(true)))
+                                .catch(err => console.error('Second attempt failed:', err));
+                        }, 500);
+                    });
+            }
+        } else {
+            console.error('Audio element not found');
         }
     };
 
     const pause = () => {
-        if (audioPlayerRef.current) {
-            audioPlayerRef.current.pause();
-            setIsPlaying(false);
+        const audioElement = getAudioElement();
+        if (audioElement) {
+            audioElement.pause();
+            dispatch(setIsPlaying(false));
         }
     };
 
@@ -232,59 +330,79 @@ export default function Home() {
 
         if (isPlaying) {
             pause();
-        } else if (audioPlayerRef.current) {
-            audioPlayerRef.current.play()
-                .then(() => setIsPlaying(true))
-                .catch(err => console.error('Error playing audio:', err));
+        } else {
+            const audioElement = getAudioElement();
+            if (audioElement) {
+                const isLocalSong = viewMode === 'local' || currentSong.local === true;
+                const url = isLocalSong ? currentSong.path : `http://${serverAddress}:8080/download?file=${encodeURIComponent(currentSong.path)}`;
+                console.log('Toggling play/pause for song:', currentSong.name, 'from URL:', url);
+                
+                // Only set the source if it's not already set or has changed
+                if (audioElement.src !== url) {
+                    audioElement.src = url;
+                    audioElement.crossOrigin = isLocalSong ? 'anonymous' : 'use-credentials';
+                    audioElement.load();
+                }
+                
+                audioElement.play()
+                    .then(() => {
+                        console.log('Playback resumed successfully');
+                        dispatch(setIsPlaying(true));
+                    })
+                    .catch(err => {
+                        console.error('Error resuming playback:', err);
+                        // Try to play again after a short delay
+                        setTimeout(() => {
+                            audioElement.play()
+                                .then(() => dispatch(setIsPlaying(true)))
+                                .catch(err => console.error('Second attempt failed:', err));
+                        }, 500);
+                    });
+            }
         }
     };
 
     const nextSong = () => {
-        if (!currentSong || playlist.length === 0) return;
+        if (!currentSong || !playlist.length) return;
 
-        const currentIndex = playlist.findIndex(song =>
-            song.path === currentSong.path
-        );
+        const currentIndex = playlist.findIndex(song => song.path === currentSong.path);
         const nextIndex = (currentIndex + 1) % playlist.length;
         playSongFromPlaylist(nextIndex);
     };
 
     const previousSong = () => {
-        if (!currentSong || playlist.length === 0) return;
+        if (!currentSong || !playlist.length) return;
 
-        const currentIndex = playlist.findIndex(song =>
-            song.path === currentSong.path
-        );
-        const previousIndex = (currentIndex - 1 + playlist.length) % playlist.length;
-        playSongFromPlaylist(previousIndex);
+        const currentIndex = playlist.findIndex(song => song.path === currentSong.path);
+        const prevIndex = (currentIndex - 1 + playlist.length) % playlist.length;
+        playSongFromPlaylist(prevIndex);
     };
 
-    // Handle folder upload for local music
-    const handleFolderUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFolderUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (!files || files.length === 0) {
-            setUploadStatus({
+            dispatch(setUploadStatus({
                 success: false,
                 message: "No files selected"
-            });
+            }));
             return;
         }
 
         try {
-            setIsLoadingMetadata(true);
+            dispatch(setIsLoadingMetadata(true));
             console.log("Starting local file processing");
 
             // Process MP3 files
-            const mp3Files: SongItem[] = [];
+            const mp3Files: any[] = [];
             const mp3FilesArray = Array.from(files).filter(file => file.name.toLowerCase().endsWith('.mp3'));
             console.log(`Found ${mp3FilesArray.length} MP3 files to process`);
 
             if (mp3FilesArray.length === 0) {
-                setUploadStatus({
+                dispatch(setUploadStatus({
                     success: false,
                     message: "No MP3 files found in selected folder"
-                });
-                setIsLoadingMetadata(false);
+                }));
+                dispatch(setIsLoadingMetadata(false));
                 return;
             }
 
@@ -331,7 +449,7 @@ export default function Home() {
                             }
 
                             // Create a SongItem from the file with metadata
-                            const songItem: SongItem = {
+                            const songItem = {
                                 name: file.name,
                                 path: objectUrl,
                                 type: 'file' as 'file',
@@ -369,7 +487,9 @@ export default function Home() {
                 processedCount += batch.length;
 
                 // Update UI with current progress
-                setLocalMusic(prev => [...mp3Files, ...prev]);
+                dispatch(setLocalMusic([...mp3Files, ...localMusic]));
+                dispatch(setDisplayedMusic([...mp3Files, ...localMusic]));
+                dispatch(setMetaDataProgress(processedCount / mp3FilesArray.length));
 
                 // Process next batch or finish
                 if (processedCount < mp3FilesArray.length) {
@@ -381,14 +501,14 @@ export default function Home() {
 
             const finishProcessing = () => {
                 console.log(`Completed processing ${processedCount} files`);
-                setUploadStatus({
+                dispatch(setUploadStatus({
                     success: true,
                     message: `Added ${processedCount} MP3 files`
-                });
+                }));
 
                 // Switch to local view mode
-                setViewMode('local');
-                setIsLoadingMetadata(false);
+                dispatch(setViewMode('local'));
+                dispatch(setIsLoadingMetadata(false));
             };
 
             // Start processing the first batch
@@ -396,74 +516,111 @@ export default function Home() {
 
         } catch (error) {
             console.error("Error processing files:", error);
-            setUploadStatus({
+            dispatch(setUploadStatus({
                 success: false,
                 message: "Error processing files"
-            });
-            setIsLoadingMetadata(false);
+            }));
+            dispatch(setIsLoadingMetadata(false));
         }
     };
 
-    // Play a local song
     const playLocalSong = (index: number) => {
         const song = localMusic[index];
-        setCurrentSong(song);
+        if (!song) {
+            console.error('No local song found at index:', index);
+            return;
+        }
 
-        if (audioPlayerRef.current) {
-            // For local files, we already have the object URL
-            audioPlayerRef.current.src = song.path;
-            audioPlayerRef.current.play()
-                .then(() => setIsPlaying(true))
-                .catch(err => console.error('Error playing audio:', err));
+        dispatch(setCurrentSong(song));
+
+        const audioElement = getAudioElement();
+        if (audioElement) {
+            console.log('Playing local song:', song.name, 'from path:', song.path);
+
+            // Reset the audio element
+            audioElement.pause();
+            audioElement.currentTime = 0;
+
+            // Set the new source
+            audioElement.src = song.path;
+            audioElement.crossOrigin = 'anonymous';
+            audioElement.load();
+
+            // Add error listener for debugging
+            const errorHandler = (e: Event) => {
+                console.error('Local audio playback error:', e);
+                const audioError = e.target as HTMLAudioElement;
+                console.error('Audio error details:', {
+                    error: audioError.error,
+                    networkState: audioError.networkState,
+                    readyState: audioError.readyState
+                });
+            };
+
+            audioElement.addEventListener('error', errorHandler, { once: true });
+
+            // Try to play
+            const playPromise = audioElement.play();
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        console.log('Local playback started successfully');
+                        dispatch(setIsPlaying(true));
+                    })
+                    .catch(err => {
+                        console.error('Error playing local audio:', err);
+                        // Try to play again after a short delay
+                        setTimeout(() => {
+                            audioElement.play()
+                                .then(() => dispatch(setIsPlaying(true)))
+                                .catch(err => console.error('Second attempt failed:', err));
+                        }, 500);
+                    });
+            }
+        } else {
+            console.error('Audio element not found');
         }
     };
 
-    // Toggle between server and local view
     const toggleViewMode = (mode: 'server' | 'local') => {
-        setViewMode(mode);
+        dispatch(setViewMode(mode));
     };
 
-    // Toggle equalizer enabled state
     const toggleEqualizer = (enabled: boolean) => {
-        setEqualizerEnabled(enabled);
+        dispatch(setEqualizerEnabled(enabled));
     };
 
-    // Filter playlist based on search
-    const filteredPlaylist = search
-        ? playlist.filter(song => song.name.toLowerCase().includes(search.toLowerCase()))
-        : playlist;
-
-    // Filter local music based on search
-    const filteredLocalMusic = search
-        ? localMusic.filter(song => song.name.toLowerCase().includes(search.toLowerCase()))
-        : localMusic;
-
-    // Determine which list to display based on view mode
-    const displayedMusic = viewMode === 'local' ? filteredLocalMusic : filteredPlaylist;
-    const displayedFolders = viewMode === 'local' ? [] : folders;
     return {
-        displayedFolders,
+        items,
+        playlist,
+        folders,
         displayedMusic,
-        toggleEqualizer,
-        togglePlayPause,
-        toggleViewMode,
-        playLocalSong,
+        displayedFolders,
+        currentSong,
+        isPlaying,
+        songProgress,
+        volume,
+        search,
+        pathURL,
+        folderName,
+        serverAddress,
+        localMusic,
+        uploadStatus,
+        viewMode,
+        equalizerEnabled,
+        isLoadingMetadata,
+        metaDataProgress,
+        openFolder,
+        fetchData,
+        updateVolume,
         playSongFromPlaylist,
+        pause,
+        togglePlayPause,
         nextSong,
         previousSong,
         handleFolderUpload,
-        updateVolume,
-        uploadStatus,
-        volume,
-        openFolder,
-        fetchSongs,
-        isLoadingMetadata,
-        setCurrentSong,
-        currentSong, fetchData,
-        setIsLoadingMetadata, playlist,
-        viewMode, search, setSearch,
-        audioPlayerRef,
-        serverAddress, setServerAddress, metaDataProgress, setMetaDataProgress, isPlaying, songProgress
-
-    }
-};
+        playLocalSong,
+        toggleViewMode,
+        toggleEqualizer,
+    };
+}

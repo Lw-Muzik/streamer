@@ -1,13 +1,39 @@
 import React from 'react';
 import LoadingComponent from './LoadingComponent';
+import { useAppDispatch, useAppSelector } from '@/store';
+import { setCurrentSong, setIsPlaying } from '@/store/slices/playerSlice';
+import { SongItem } from '@/types';
 import usePlayer from '@/hooks/usePlayer';
-interface SongsIF {
 
-}
+interface SongsIF { }
+
 const SongsTab: React.FC<SongsIF> = () => {
-    const { displayedMusic, playlist, isLoadingMetadata, viewMode, currentSong, playLocalSong, playSongFromPlaylist } = usePlayer();
+    const dispatch = useAppDispatch();
+    const {
+        displayedMusic,
+        playlist,
+        isLoadingMetadata,
+        viewMode,
+        currentSong,
+    } = useAppSelector((state) => state.player);
+    const { playSongFromPlaylist } = usePlayer();
+
     const formatSize = (size: number) => {
         return (size / (1024 * 1024)).toFixed(2) + ' MB';
+    };
+
+    const handleSongClick = (index: number) => {
+        if (viewMode === 'local') {
+            // For local songs, use the index in displayedMusic
+            playSongFromPlaylist(index);
+        } else {
+            // For server songs, find the index in the playlist
+            const song = displayedMusic[index];
+            const playlistIndex = playlist.findIndex(item => item.path === song.path);
+            if (playlistIndex !== -1) {
+                playSongFromPlaylist(playlistIndex);
+            }
+        }
     };
 
     return (
@@ -39,10 +65,10 @@ const SongsTab: React.FC<SongsIF> = () => {
                         <LoadingComponent />
                     )}
                     {displayedMusic.length > 0 ? (
-                        displayedMusic.map((item, index) => (
+                        displayedMusic.map((item: SongItem, index: number) => (
                             <li
                                 key={index}
-                                onClick={() => viewMode === 'local' ? playLocalSong(index) : playSongFromPlaylist(playlist.indexOf(item))}
+                                onClick={() => handleSongClick(index)}
                                 className={`border-b border-[#222222] hover:bg-[#333333] p-4 flex items-center justify-between cursor-pointer transition-colors ${currentSong && currentSong.path === item.path
                                     ? 'bg-[#282828] border-l-4 border-l-[#1DB954]'
                                     : ''

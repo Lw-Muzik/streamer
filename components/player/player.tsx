@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { SongItem } from '@/types';
 import Link from 'next/link';
 import Equalizer from '../equalizer.tsx/equalizer';
 import usePlayer from '@/hooks/usePlayer';
+import { useAudioContext } from '@/contexts/AudioContext';
 
 interface PlayerProps {
 
@@ -12,34 +13,71 @@ const Player: React.FC<PlayerProps> = () => {
     const [currentTime, setCurrentTime] = useState<number>(0);
     const [duration, setDuration] = useState<number>(0);
     const [showEqualizerModal, setShowEqualizerModal] = useState<boolean>(false);
-    const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
-    const { nextSong, previousSong, songProgress, isPlaying, currentSong, togglePlayPause } = usePlayer();
+    const { getAudioElement } = useAudioContext();
+    // Add refs to track current time and duration to avoid infinite loops
+    const currentTimeRef = useRef<number>(0);
+    const durationRef = useRef<number>(0);
+    const {
+        nextSong,
+        previousSong,
+        songProgress,
+        isPlaying,
+        currentSong,
+        togglePlayPause,
+    } = usePlayer();
+
     useEffect(() => {
         // Update current time and duration
-        const audioEl = document.getElementById('audio') as HTMLAudioElement;
-        if (audioEl) {
-            setAudioElement(audioEl);
+        const audioElement = getAudioElement();
+        if (audioElement) {
+            // Use a separate function for updating the UI state that runs on an interval
+            // instead of directly in the event handler
+            const updateUIFromRefs = () => {
+                if (currentTimeRef.current !== audioElement.currentTime) {
+                    setCurrentTime(currentTimeRef.current);
+                }
+                if (durationRef.current !== audioElement.duration) {
+                    setDuration(durationRef.current);
+                }
+            };
+            
+            // This function only updates refs, not state directly
             const updateTimes = () => {
-                setCurrentTime(audioEl.currentTime);
-                setDuration(audioEl.duration);
+                currentTimeRef.current = audioElement.currentTime;
+                durationRef.current = audioElement.duration || 0;
             };
 
-            audioEl.addEventListener('timeupdate', updateTimes);
-            audioEl.addEventListener('loadedmetadata', updateTimes);
-            navigator.mediaSession.setActionHandler('nexttrack', function (x) {
-                nextSong()
-            })
-            navigator.mediaSession.setActionHandler('previoustrack', function (action) {
-                console.log(action.action)
-                previousSong();
-            })
+            const handleError = (e: Event) => {
+                console.error('Audio error:', e);
+                const audioError = e.target as HTMLAudioElement;
+                console.error('Audio error details:', {
+                    error: audioError.error,
+                    networkState: audioError.networkState,
+                    readyState: audioError.readyState
+                });
+            };
+
+            // Initial update to make sure values are set
+            updateTimes();
+            updateUIFromRefs();
+            
+            // Set up an interval to update the UI state from refs
+            const intervalId = setInterval(updateUIFromRefs, 250); // Update UI 4 times per second
+
+            audioElement.addEventListener('timeupdate', updateTimes);
+            audioElement.addEventListener('loadedmetadata', updateTimes);
+            audioElement.addEventListener('error', handleError);
+            navigator.mediaSession.setActionHandler('nexttrack', nextSong);
+            navigator.mediaSession.setActionHandler('previoustrack', previousSong);
+
             return () => {
-                audioEl.removeEventListener('timeupdate', updateTimes);
-                audioEl.removeEventListener('loadedmetadata', updateTimes);
+                clearInterval(intervalId);
+                audioElement.removeEventListener('timeupdate', updateTimes);
+                audioElement.removeEventListener('loadedmetadata', updateTimes);
+                audioElement.removeEventListener('error', handleError);
             };
-
         }
-    }, []);
+    }, [getAudioElement, nextSong, previousSong]); // Keep minimal dependencies
 
     const formatDate = (date?: string): string => {
         return date ? new Date(date).toLocaleDateString() : '';
@@ -54,11 +92,13 @@ const Player: React.FC<PlayerProps> = () => {
     };
 
     const toggleEqualizer = () => {
-        setShowEqualizerModal(!showEqualizerModal);
+        setShowEqualizerModal(prevState => !prevState);
+        // We no longer toggle the equalizer state here, just the modal visibility
     };
 
     return (
         <div className="w-full text-white">
+            {/* Audio element is now provided by AudioContext */}
             <div className="p-4 flex items-center justify-between">
                 {/* Song info - left side */}
                 <Link href={''} className="flex items-center space-x-4 w-1/3">
@@ -212,12 +252,12 @@ const Player: React.FC<PlayerProps> = () => {
 
             {/* Equalizer Modal */}
             {showEqualizerModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
-                    <div className="bg-[#282828] border-[#333333] rounded-lg shadow-xl w-full max-w-2xl h-1/3 p-4 mx-4">
-                        <div className="flex justify-between items-center mb-4">
+                <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 overflow-y-auto p-4">
+                    <div className="bg-[#282828] border-[#333333] rounded-lg shadow-xl w-full max-w-2xl mx-4 my-auto">
+                        <div className="flex justify-between items-center p-4 border-b border-[#333333]">
                             <h3 className="text-xl font-bold">Audio Equalizer</h3>
                             <button
-                                onClick={() => setShowEqualizerModal(false)}
+                                onClick={toggleEqualizer}
                                 className="text-gray-400 hover:text-white"
                             >
                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -225,9 +265,11 @@ const Player: React.FC<PlayerProps> = () => {
                                 </svg>
                             </button>
                         </div>
-                        <Equalizer
-                            onEnableChange={toggleEqualizer}
-                        />
+                        <div className="p-2">
+                            <Equalizer
+                                // Don't pass onEnableChange to keep equalizer running when modal is closed
+                            />
+                        </div>
                     </div>
                 </div>
             )}

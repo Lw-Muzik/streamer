@@ -1,7 +1,7 @@
 import React from 'react';
 interface SearchIF {
     search: string;
-    setSearch: React.Dispatch<React.SetStateAction<string>>;
+    setSearch: (value: string) => void;
 }
 const SearchComponent: React.FC<SearchIF> = ({ search, setSearch }) => {
     return (

@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "./manifest.json";
 import { Suspense } from "react";
+import ReduxProvider from "../providers/ReduxProvider";
+import { AudioProvider } from "@/contexts/AudioContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -32,7 +34,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Suspense fallback={<div>Loading...</div>}>
-          {children}
+          <ReduxProvider>
+            <AudioProvider>
+              {children}
+            </AudioProvider>
+          </ReduxProvider>
         </Suspense>
       </body>
     </html>
