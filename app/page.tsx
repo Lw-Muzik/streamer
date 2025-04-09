@@ -104,7 +104,7 @@ export default function Home() {
       const mp3Files = data.items.filter(
         (item: SongItem) => item.type === 'file' && item.extension === '.mp3'
       );
-      
+
       // Set initial playlist without metadata
       setPlaylist(mp3Files);
 
@@ -113,16 +113,16 @@ export default function Home() {
         (item: SongItem) => item.type === 'directory'
       ) as FolderItem[];
       setFolders(directories);
-      
+
       // Extract metadata for server files
       if (mp3Files.length > 0) {
         setIsLoadingMetadata(true);
         console.log("Starting metadata extraction for", mp3Files.length, "files");
-        
+
         // Process files in batches to avoid overwhelming the browser
         const batchSize = 5;
         const enhancedFiles: SongItem[] = [...mp3Files]; // Start with original files
-        
+
         for (let i = 0; i < mp3Files.length; i += batchSize) {
           const batch = mp3Files.slice(i, i + batchSize);
           const batchResults = await Promise.all(
@@ -131,29 +131,29 @@ export default function Home() {
                 // Fetch the file for metadata extraction
                 const fileUrl = `http://${serverAddress}:8080/download?file=${file.path}`;
                 console.log(`Fetching file ${i + index + 1}/${mp3Files.length}: ${file.name}`);
-                
+
                 const response = await fetch(fileUrl);
                 if (!response.ok) {
                   throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
                 }
-                
+
                 const arrayBuffer = await response.arrayBuffer();
                 console.log(`Processing metadata for: ${file.name} (${arrayBuffer.byteLength} bytes)`);
-                
+
                 // Parse metadata
                 const metadata = await musicMetadata.parseBuffer(
                   new Uint8Array(arrayBuffer),
                   { mimeType: 'audio/mpeg' }
                 );
-                
+
                 // Extract metadata
                 const { common, format } = metadata;
-                console.log(`Extracted metadata for: ${file.name}`, { 
-                  title: common.title, 
+                console.log(`Extracted metadata for: ${file.name}`, {
+                  title: common.title,
                   artist: common.artist,
                   hasPicture: common.picture && common.picture.length > 0
                 });
-                
+
                 // Create a blob URL for the picture if it exists
                 let pictureUrl = '';
                 if (common.picture && common.picture.length > 0) {
@@ -162,7 +162,7 @@ export default function Home() {
                   pictureUrl = URL.createObjectURL(blob);
                   console.log(`Created artwork URL for: ${file.name}`);
                 }
-                
+
                 return {
                   ...file,
                   title: common.title || file.name,
@@ -181,16 +181,16 @@ export default function Home() {
               }
             })
           );
-          
+
           // Update the enhanced files array with the batch results
           batchResults.forEach((result, idx) => {
             enhancedFiles[i + idx] = result;
           });
-          
+
           // Update the playlist with the current progress
           setPlaylist([...enhancedFiles]);
         }
-        
+
         console.log("Metadata extraction complete");
         setIsLoadingMetadata(false);
       }
@@ -284,12 +284,12 @@ export default function Home() {
     try {
       setIsLoadingMetadata(true);
       console.log("Starting local file processing");
-      
+
       // Process MP3 files
       const mp3Files: SongItem[] = [];
       const mp3FilesArray = Array.from(files).filter(file => file.name.toLowerCase().endsWith('.mp3'));
       console.log(`Found ${mp3FilesArray.length} MP3 files to process`);
-      
+
       if (mp3FilesArray.length === 0) {
         setUploadStatus({
           success: false,
@@ -298,40 +298,40 @@ export default function Home() {
         setIsLoadingMetadata(false);
         return;
       }
-      
+
       // Process files in batches
       const batchSize = 5;
       let processedCount = 0;
-      
+
       const processNextBatch = async (startIndex: number) => {
         const endIndex = Math.min(startIndex + batchSize, mp3FilesArray.length);
         const batch = mp3FilesArray.slice(startIndex, endIndex);
-        
+
         const batchResults = await Promise.all(
           batch.map(async (file: File) => {
             try {
               console.log(`Processing local file: ${file.name}`);
               // Create a local URL for the file
               const objectUrl = URL.createObjectURL(file);
-              
+
               // Read the file for metadata extraction
               const arrayBuffer = await file.arrayBuffer();
               console.log(`Reading metadata for: ${file.name} (${arrayBuffer.byteLength} bytes)`);
-              
+
               // Parse metadata
               const metadata = await musicMetadata.parseBuffer(
                 new Uint8Array(arrayBuffer),
                 { mimeType: 'audio/mpeg' }
               );
-              
+
               // Extract metadata
               const { common, format } = metadata;
-              console.log(`Extracted metadata for: ${file.name}`, { 
-                title: common.title, 
+              console.log(`Extracted metadata for: ${file.name}`, {
+                title: common.title,
                 artist: common.artist,
                 hasPicture: common.picture && common.picture.length > 0
               });
-              
+
               // Create a blob URL for the picture if it exists
               let pictureUrl = '';
               if (common.picture && common.picture.length > 0) {
@@ -340,7 +340,7 @@ export default function Home() {
                 pictureUrl = URL.createObjectURL(blob);
                 console.log(`Created artwork URL for: ${file.name}`);
               }
-              
+
               // Create a SongItem from the file with metadata
               const songItem: SongItem = {
                 name: file.name,
@@ -374,14 +374,14 @@ export default function Home() {
             }
           })
         );
-        
+
         // Add processed files to our collection
         mp3Files.push(...batchResults);
         processedCount += batch.length;
-        
+
         // Update UI with current progress
         setLocalMusic(prev => [...mp3Files, ...prev]);
-        
+
         // Process next batch or finish
         if (processedCount < mp3FilesArray.length) {
           await processNextBatch(endIndex);
@@ -389,7 +389,7 @@ export default function Home() {
           finishProcessing();
         }
       };
-      
+
       const finishProcessing = () => {
         console.log(`Completed processing ${processedCount} files`);
         setUploadStatus({
@@ -401,10 +401,10 @@ export default function Home() {
         setViewMode('local');
         setIsLoadingMetadata(false);
       };
-      
+
       // Start processing the first batch
       processNextBatch(0);
-      
+
     } catch (error) {
       console.error("Error processing files:", error);
       setUploadStatus({
@@ -435,25 +435,25 @@ export default function Home() {
   };
 
   // Clean up object URLs when component unmounts
-  useEffect(() => {
-    return () => {
-      localMusic.forEach(song => {
-        if (song.local && song.path) {
-          URL.revokeObjectURL(song.path);
-        }
-        if (song.artwork) {
-          URL.revokeObjectURL(song.artwork);
-        }
-      });
-      
-      // Also clean up artwork URLs for server playlist
-      playlist.forEach(song => {
-        if (song.artwork) {
-          URL.revokeObjectURL(song.artwork);
-        }
-      });
-    };
-  }, [localMusic, playlist]);
+  // useEffect(() => {
+  //   return () => {
+  //     localMusic.forEach(song => {
+  //       if (song.local && song.path) {
+  //         URL.revokeObjectURL(song.path);
+  //       }
+  //       if (song.artwork) {
+  //         URL.revokeObjectURL(song.artwork);
+  //       }
+  //     });
+
+  //     // Also clean up artwork URLs for server playlist
+  //     playlist.forEach(song => {
+  //       if (song.artwork) {
+  //         URL.revokeObjectURL(song.artwork);
+  //       }
+  //     });
+  //   };
+  // }, [localMusic, playlist]);
 
   // Toggle equalizer enabled state
   const toggleEqualizer = (enabled: boolean) => {
@@ -706,10 +706,10 @@ export default function Home() {
                             className="w-10 h-10 flex items-center justify-center bg-[#333333] rounded-md mr-3 flex-shrink-0 overflow-hidden"
                           >
                             {item.artwork ? (
-                              <img 
-                                src={item.artwork} 
+                              <img
+                                src={item.artwork}
                                 alt={item.title || item.name}
-                                className="w-full h-full object-cover" 
+                                className="w-full h-full object-cover"
                               />
                             ) : (
                               <svg
@@ -740,8 +740,8 @@ export default function Home() {
                         <span
                           className="text-xs bg-[#333333] text-gray-300 px-2 py-1 rounded-md ml-2 flex-shrink-0"
                         >
-                          {item.duration ? 
-                            `${Math.floor(item.duration / 60)}:${Math.floor(item.duration % 60).toString().padStart(2, '0')}` : 
+                          {item.duration ?
+                            `${Math.floor(item.duration / 60)}:${Math.floor(item.duration % 60).toString().padStart(2, '0')}` :
                             formatSize(item.size || 0)
                           }
                         </span>
