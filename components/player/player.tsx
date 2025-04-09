@@ -40,11 +40,12 @@ const Player: React.FC<PlayerProps> = () => {
                     setDuration(durationRef.current);
                 }
             };
-            
+
             // This function only updates refs, not state directly
             const updateTimes = () => {
                 currentTimeRef.current = audioElement.currentTime;
                 durationRef.current = audioElement.duration || 0;
+
             };
 
             const handleError = (e: Event) => {
@@ -60,13 +61,13 @@ const Player: React.FC<PlayerProps> = () => {
             // Initial update to make sure values are set
             updateTimes();
             updateUIFromRefs();
-            
+
             // Set up an interval to update the UI state from refs
             const intervalId = setInterval(updateUIFromRefs, 250); // Update UI 4 times per second
 
             audioElement.addEventListener('timeupdate', updateTimes);
             audioElement.addEventListener('loadedmetadata', updateTimes);
-            audioElement.addEventListener('error', handleError);
+            // audioElement.addEventListener('error', handleError);
             navigator.mediaSession.setActionHandler('nexttrack', nextSong);
             navigator.mediaSession.setActionHandler('previoustrack', previousSong);
 
@@ -74,7 +75,7 @@ const Player: React.FC<PlayerProps> = () => {
                 clearInterval(intervalId);
                 audioElement.removeEventListener('timeupdate', updateTimes);
                 audioElement.removeEventListener('loadedmetadata', updateTimes);
-                audioElement.removeEventListener('error', handleError);
+                // audioElement.removeEventListener('error', handleError);
             };
         }
     }, [getAudioElement, nextSong, previousSong]); // Keep minimal dependencies
@@ -101,7 +102,7 @@ const Player: React.FC<PlayerProps> = () => {
             {/* Audio element is now provided by AudioContext */}
             <div className="p-4 flex items-center justify-between">
                 {/* Song info - left side */}
-                <Link href={''} className="flex items-center space-x-4 w-1/3">
+                <Link href="/player" className="flex items-center space-x-4 w-1/3">
                     {/* Album art */}
                     <div className="w-12 h-12 bg-[#282828] rounded-md overflow-hidden flex items-center justify-center flex-shrink-0 border border-[#333333]">
                         {currentSong && currentSong.artwork ? (
@@ -214,8 +215,9 @@ const Player: React.FC<PlayerProps> = () => {
 
                 {/* Right side - can be used for additional controls */}
                 <div className="w-1/3 flex justify-end space-x-3">
-                    <button
-                        onClick={toggleEqualizer}
+                    <Link
+                        href="/equalizer"
+                        // onClick={toggleEqualizer}
                         className={`flex items-center space-x-1 text-xs ${showEqualizerModal ? 'text-[#1DB954]' : 'text-gray-400'} hover:text-white transition-colors px-2 py-1 rounded bg-[#282828]`}
                         title="Toggle Equalizer"
                     >
@@ -231,7 +233,7 @@ const Player: React.FC<PlayerProps> = () => {
                             <line x1="17" y1="16" x2="23" y2="16"></line>
                         </svg>
                         <span>EQ</span>
-                    </button>
+                    </Link>
 
                     {currentSong && (
                         <div className="flex space-x-2">
@@ -267,7 +269,6 @@ const Player: React.FC<PlayerProps> = () => {
                         </div>
                         <div className="p-2">
                             <Equalizer
-                                // Don't pass onEnableChange to keep equalizer running when modal is closed
                             />
                         </div>
                     </div>

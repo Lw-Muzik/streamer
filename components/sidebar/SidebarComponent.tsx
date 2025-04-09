@@ -10,6 +10,7 @@ import {
     setMetaDataProgress
 } from '@/store/slices/playerSlice';
 import * as musicMetadata from 'music-metadata';
+import Link from 'next/link';
 
 const SidebarComponent = () => {
     const dispatch = useAppDispatch();
@@ -265,8 +266,19 @@ const SidebarComponent = () => {
                         </svg>
                         My Music
                     </button>
+                    <Link className='text-white p-3 rounded-md transition-colors w-full flex items-center justify-center bg-[#333333] hover:bg-[#444444]' href="/equalizer"> <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="4" y1="21" x2="4" y2="14"></line>
+                        <line x1="4" y1="10" x2="4" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12" y2="3"></line>
+                        <line x1="20" y1="21" x2="20" y2="16"></line>
+                        <line x1="20" y1="12" x2="20" y2="3"></line>
+                        <line x1="1" y1="14" x2="7" y2="14"></line>
+                        <line x1="9" y1="8" x2="15" y2="8"></line>
+                        <line x1="17" y1="16" x2="23" y2="16"></line>
+                    </svg>  Equalizer</Link>
                     <button
-                        className={`text-white p-3 rounded-md transition-colors w-full flex items-center justify-center ${viewMode === 'server'
+                        className={`text-white bg-[#333333] hover:bg-[#444444] p-3 rounded-md transition-colors w-full flex items-center justify-center ${viewMode === 'server'
                             ? 'bg-[#1DB954] hover:bg-[#1ed760]'
                             : 'bg-[#333333] hover:bg-[#444444]'
                             }`}

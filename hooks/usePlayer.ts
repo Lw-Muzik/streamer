@@ -278,21 +278,21 @@ export default function usePlayer() {
 
             // Set the new source
             audioElement.src = url;
-            audioElement.crossOrigin = isLocalSong ? 'anonymous' : 'use-credentials';
+            // audioElement.crossOrigin = isLocalSong ? 'anonymous' : 'use-credentials';
             audioElement.load();
 
             // Add error listener for debugging
-            const errorHandler = (e: Event) => {
-                console.error('Audio playback error:', e);
-                const audioError = e.target as HTMLAudioElement;
-                console.error('Audio error details:', {
-                    error: audioError.error,
-                    networkState: audioError.networkState,
-                    readyState: audioError.readyState
-                });
-            };
+            // const errorHandler = (e: Event) => {
+            //     console.error('Audio playback error:', e);
+            //     const audioError = e.target as HTMLAudioElement;
+            //     console.error('Audio error details:', {
+            //         error: audioError.error,
+            //         networkState: audioError.networkState,
+            //         readyState: audioError.readyState
+            //     });
+            // };
 
-            audioElement.addEventListener('error', errorHandler, { once: true });
+            // audioElement.addEventListener('error', errorHandler, { once: true });
 
             // Try to play
             const playPromise = audioElement.play();
@@ -336,14 +336,14 @@ export default function usePlayer() {
                 const isLocalSong = viewMode === 'local' || currentSong.local === true;
                 const url = isLocalSong ? currentSong.path : `http://${serverAddress}:8080/download?file=${encodeURIComponent(currentSong.path)}`;
                 console.log('Toggling play/pause for song:', currentSong.name, 'from URL:', url);
-                
+
                 // Only set the source if it's not already set or has changed
                 if (audioElement.src !== url) {
                     audioElement.src = url;
                     audioElement.crossOrigin = isLocalSong ? 'anonymous' : 'use-credentials';
                     audioElement.load();
                 }
-                
+
                 audioElement.play()
                     .then(() => {
                         console.log('Playback resumed successfully');

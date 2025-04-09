@@ -55,7 +55,7 @@ const Equalizer: React.FC<EqualizerProps> = ({
   // Auto-connect when audio element is available and keep connected
   // Use a ref to track if we've already tried to connect
   const hasTriedToConnect = React.useRef(false);
-  
+
   useEffect(() => {
     // Only try to connect once when the audio element is available
     if (audioElement && !isConnected && !hasTriedToConnect.current) {
@@ -66,7 +66,7 @@ const Equalizer: React.FC<EqualizerProps> = ({
     // Don't disconnect when component unmounts
     // This allows the equalizer to keep running in the background
     return () => { };
-  // Remove connectEqualizer from dependencies as it can cause re-renders
+    // Remove connectEqualizer from dependencies as it can cause re-renders
   }, [audioElement, isConnected]);
 
   // Handle EQ slider changes
@@ -127,11 +127,11 @@ const Equalizer: React.FC<EqualizerProps> = ({
   // Toggle connection to audio
   const handleToggleConnection = () => {
     console.log('Toggle connection, current state:', isConnected);
-    
+
     // Use a local variable to track the current UI state
     // This prevents issues with stale state in the closure
     const currentlyConnected = isConnected;
-    
+
     if (currentlyConnected) {
       console.log('Disconnecting equalizer...');
       disconnectEqualizer();
@@ -375,7 +375,7 @@ const Equalizer: React.FC<EqualizerProps> = ({
                   type="range"
                   min="50"
                   max="400"
-                  step="10"
+                  step="5"
                   value={bassFilter.frequency}
                   onChange={(e) => handleBassFrequencyChange(parseInt(e.target.value))}
                   className="absolute inset-0 w-full h-6 -top-2 opacity-0 cursor-pointer"

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAudioContext } from '@/contexts/AudioContext';
 
 // Define frequency bands for the equalizer
-const FREQUENCY_BANDS = [32, 60, 150, 400, 1000, 4000, 16000];
+const FREQUENCY_BANDS = [60, 150, 400, 1000, 4000, 16000];
 
 // Global state for the equalizer that persists across component instances
 let globalState = {
@@ -22,6 +22,7 @@ let globalGainNode: GainNode | null = null;
 let eqFilters: BiquadFilterNode[] = [];
 let bassBiquadFilter: BiquadFilterNode | null = null;
 let trebleBiquadFilter: BiquadFilterNode | null = null;
+let gainNodeFilter: GainNode | null = null;
 let isConnected = false;
 
 export const useEqualizer = () => {
@@ -93,7 +94,7 @@ export const useEqualizer = () => {
             // Create a gain node for testing
             if (!globalGainNode && globalAudioContext) {
                 globalGainNode = globalAudioContext.createGain();
-                globalGainNode.gain.value = 2.0; // Double the volume for testing
+                globalGainNode.gain.value = 1.0; // Double the volume for testing
                 console.log("Created gain node with value 2.0");
             }
 
@@ -136,7 +137,7 @@ export const useEqualizer = () => {
                 if (!bassBiquadFilter && globalAudioContext) {
                     bassBiquadFilter = globalAudioContext.createBiquadFilter();
                     bassBiquadFilter.type = 'lowshelf';
-                    bassBiquadFilter.frequency.value = 200; // Default bass frequency
+                    bassBiquadFilter.frequency.value = 80; // Default bass frequency
                     bassBiquadFilter.gain.value = 0.0;
                     console.log("Created bass filter");
                 }
@@ -404,10 +405,10 @@ export const useEqualizer = () => {
     }, [bassFilter, trebleFilter, isConnected, isEnabled]);
 
     // Clean up when component unmounts
-    useEffect(() => {
-        setConnected(false);
-        console.log('Equalizer disconnected');
-    }, []);
+    // useEffect(() => {
+    //     setConnected(false);
+    //     console.log('Equalizer disconnected');
+    // }, []);
 
     const setBandGain = (index: number, value: number) => {
         if (index < 0 || index >= FREQUENCY_BANDS.length) {
