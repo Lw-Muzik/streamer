@@ -44,8 +44,14 @@ const Player: React.FC<PlayerProps> = () => {
             // This function only updates refs, not state directly
             const updateTimes = () => {
                 currentTimeRef.current = audioElement.currentTime;
-                durationRef.current = audioElement.duration || 0;
-
+                
+                // Only update duration if it's a valid number and different from current
+                if (!isNaN(audioElement.duration) && audioElement.duration > 0) {
+                    durationRef.current = audioElement.duration;
+                } else if (currentSong?.duration && currentSong.duration > 0) {
+                    // Fallback to the song metadata duration if available
+                    durationRef.current = currentSong.duration;
+                }
             };
 
             const handleError = (e: Event) => {
@@ -67,6 +73,8 @@ const Player: React.FC<PlayerProps> = () => {
 
             audioElement.addEventListener('timeupdate', updateTimes);
             audioElement.addEventListener('loadedmetadata', updateTimes);
+            audioElement.addEventListener('durationchange', updateTimes);
+            audioElement.addEventListener('canplaythrough', updateTimes);
             // audioElement.addEventListener('error', handleError);
             navigator.mediaSession.setActionHandler('nexttrack', nextSong);
             navigator.mediaSession.setActionHandler('previoustrack', previousSong);
@@ -75,6 +83,8 @@ const Player: React.FC<PlayerProps> = () => {
                 clearInterval(intervalId);
                 audioElement.removeEventListener('timeupdate', updateTimes);
                 audioElement.removeEventListener('loadedmetadata', updateTimes);
+                audioElement.removeEventListener('durationchange', updateTimes);
+                audioElement.removeEventListener('canplaythrough', updateTimes);
                 // audioElement.removeEventListener('error', handleError);
             };
         }

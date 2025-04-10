@@ -2,9 +2,21 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAudioContext } from '@/contexts/AudioContext';
-
+/*
+| Type | Fc | Q | Gain |
+|: --------|: ---------|: -----|: ---------|
+| Peaking | 31 Hz | 1.41 | -11.9 dB |
+| Peaking | 62 Hz | 1.41 | -4.7 dB |
+| Peaking | 125 Hz | 1.41 | -4.1 dB |
+| Peaking | 250 Hz | 1.41 | -1.1 dB |
+| Peaking | 500 Hz | 1.41 | 2.4 dB |
+| Peaking | 1000 Hz | 1.41 | 2.3 dB |
+| Peaking | 2000 Hz | 1.41 | 2.0 dB |
+| Peaking | 4000 Hz | 1.41 | -3.7 dB |
+| Peaking | 8000 Hz | 1.41 | 4.8 dB |
+| Peaking | 16000 Hz | 1.41 | -11.1 dB |*/
 // Define frequency bands for the equalizer
-const FREQUENCY_BANDS = [60, 150, 400, 1000, 4000, 16000];
+const FREQUENCY_BANDS = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 
 // Global state for the equalizer that persists across component instances
 let globalState = {

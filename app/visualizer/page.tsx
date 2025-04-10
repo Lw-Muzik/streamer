@@ -7,63 +7,98 @@ import Link from "next/link";
 const Page = () => {
     const { analyserNodeFilter } = useEqualizer();
     const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+    const animationRef = React.useRef<number | null>(null);
+
     // function to create visualizer
     const createVisualizer = () => {
         if (analyserNodeFilter && canvasRef.current) {
             const canvas = canvasRef.current;
             const canvasCtx = canvas.getContext("2d");
             if (canvasCtx) {
+                // Clear the canvas
                 canvasCtx.clearRect(0, 0, canvas.width, canvas.height);
+
                 const width = canvas.width;
                 const height = canvas.height;
                 const bufferLength = analyserNodeFilter.frequencyBinCount;
                 const dataArray = new Uint8Array(bufferLength);
+
+                // Get frequency data
                 analyserNodeFilter.getByteFrequencyData(dataArray);
+
                 const barWidth = (width / bufferLength) * 2.5;
                 let barHeight;
                 let x = 0;
+
+                // Draw frequency bars
                 for (let i = 0; i < bufferLength; i++) {
                     barHeight = dataArray[i] / 2;
-                    canvasCtx.fillStyle = `rgb(${barHeight}, ${barHeight}, ${barHeight})`;
+                    // Create a gradient color based on frequency
+                    canvasCtx.fillStyle = `rgb(${Math.min(255, barHeight + 100)}, ${Math.min(255, barHeight * 2)}, ${Math.min(255, 255 - barHeight)})`;
                     canvasCtx.fillRect(x, height - barHeight, barWidth, barHeight);
                     x += barWidth + 1;
                 }
+
+                // Continue the animation loop
+                animationRef.current = window.requestAnimationFrame(createVisualizer);
             }
         }
     }
+
+    // Initialize visualizer when analyserNodeFilter is available
     React.useEffect(() => {
-        if (analyserNodeFilter) {
+        if (analyserNodeFilter && canvasRef.current) {
+            // Set initial canvas dimensions
             const canvas = canvasRef.current;
-            if (canvas) {
-                canvas.width = window.innerWidth;
-                canvas.height = window.innerHeight;
-            }
-            // create the visualizer
-            window.requestAnimationFrame(createVisualizer);
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight; // Fixed height for better visualization
+
+            // Start the animation loop
+            animationRef.current = window.requestAnimationFrame(createVisualizer);
+
+            // Cleanup function
+            return () => {
+                if (animationRef.current) {
+                    window.cancelAnimationFrame(animationRef.current);
+                }
+            };
         }
     }, [analyserNodeFilter]);
-    // function to handle window resize
+
+    // Handle window resize
     React.useEffect(() => {
         const handleResize = () => {
             if (canvasRef.current) {
                 canvasRef.current.width = window.innerWidth;
-                canvasRef.current.height = window.innerHeight;
-                createVisualizer();
+                // Keep height fixed for better visualization
+                canvasRef.current.height = 400;
             }
         }
+
         window.addEventListener("resize", handleResize);
         return () => {
             window.removeEventListener("resize", handleResize);
         }
     }, []);
-    // handle cleaning on unmount
+
+    // Handle cleanup on unmount
     React.useEffect(() => {
         return () => {
+            // Cancel any ongoing animation
+            if (animationRef.current) {
+                window.cancelAnimationFrame(animationRef.current);
+            }
+
+            // Disconnect analyser node if it exists
             if (analyserNodeFilter) {
-                analyserNodeFilter.disconnect();
+                try {
+                    analyserNodeFilter.disconnect();
+                } catch (error) {
+                    console.error("Error disconnecting analyser node:", error);
+                }
             }
         }
-    })
+    }, [analyserNodeFilter])
     return (
         <AppLayout>
             <div className="h-full w-full">
@@ -80,7 +115,11 @@ const Page = () => {
                 <h1>Visualizer</h1>
                 {analyserNodeFilter && (
                     <>
-                        <canvas height={50} id="visualizer" ref={canvasRef}></canvas>
+                        <canvas
+                            id="visualizer"
+                            ref={canvasRef}
+                            className="w-full h-[400px] bg-black/20 rounded-lg shadow-lg"
+                        ></canvas>
                     </>
                 )}
             </div>

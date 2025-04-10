@@ -182,7 +182,7 @@ const SidebarComponent = () => {
     };
 
     return (
-        <div className="w-64 bg-[#121212] p-6 flex flex-col h-full">
+        <div className="w-64 bg-[#121212] overflow-y-auto p-6 flex flex-col h-full">
             <h1 className="text-2xl font-bold mb-8 text-white">Ethereal Tunes</h1>
 
             {/* Server Connection */}
@@ -321,23 +321,67 @@ const SidebarComponent = () => {
                         <line x1="9" y1="8" x2="15" y2="8"></line>
                         <line x1="17" y1="16" x2="23" y2="16"></line>
                     </svg> <span className='px-3'> Visualizer</span></Link>
+                <Link className={`text-white p-3 rounded-md transition-colors w-full flex items-center justify-center 
+                        ${navigation === '/settings' ? 'bg-[#1DB954] hover:bg-[#1ed760]'
+                        : 'bg-[#333333] hover:bg-[#444444]'}
+                            `} href="/settings">
+                    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                    <span className='px-3'>Settings</span>
+                </Link>
             </SideBarTile>
             {/* Volume Control */}
             <div className="mb-6">
                 <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-3">Volume</h2>
-                <div className="flex items-center">
-                    <input
-                        type="range"
-                        className="w-full h-2 bg-[#535353] rounded-lg appearance-none cursor-pointer accent-[#1DB954]"
-                        step="0.01"
-                        value={volume}
-                        onChange={updateVolume}
-                        min="0"
-                        max="1"
-                    />
-                    <span className="text-sm text-gray-300 ml-2 w-10 text-right">
-                        {Math.round(Number(volume) * 100)}%
-                    </span>
+                <div className="flex flex-col space-y-2">
+                    <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center">
+                            {/* Volume Icon - changes based on volume level */}
+                            {Number(volume) === 0 ? (
+                                <svg className="w-4 h-4 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                    <line x1="23" y1="9" x2="17" y2="15"></line>
+                                    <line x1="17" y1="9" x2="23" y2="15"></line>
+                                </svg>
+                            ) : Number(volume) < 0.5 ? (
+                                <svg className="w-4 h-4 text-gray-300" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                </svg>
+                            ) : (
+                                <svg className="w-4 h-4 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
+                                </svg>
+                            )}
+                        </div>
+                        <span className="text-sm font-medium text-white bg-[#333333] px-2 py-1 rounded-md">
+                            {Math.round(Number(volume) * 100)}%
+                        </span>
+                    </div>
+
+                    <div className="relative">
+                        <input
+                            type="range"
+                            className="volume-slider w-full"
+                            step="0.01"
+                            value={volume}
+                            onChange={updateVolume}
+                            min="0"
+                            max="1"
+                            style={{
+                                background: `linear-gradient(to right, var(--primary-color) 0%, var(--primary-color) ${Number(volume) * 100}%, var(--secondary-bg) ${Number(volume) * 100}%, var(--secondary-bg) 100%)`
+                            }}
+                        />
+                        <div className="absolute -bottom-4 left-0 w-full flex justify-between px-1 text-[10px] text-gray-500">
+                            <span>0</span>
+                            <span>50</span>
+                            <span>100</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
