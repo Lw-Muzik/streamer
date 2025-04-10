@@ -1,26 +1,22 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useEqualizer } from '@/hooks/useEqualizer';
+import React, { useState, useEffect, useRef } from 'react';
+import { useEqualizer, PRESETS } from '@/hooks/useEqualizer';
 import { useAudioContext } from '@/contexts/AudioContext';
 
 interface EqualizerProps {
   onEnableChange?: (enabled: boolean) => void;
 }
 
-// Presets for the equalizer
-const PRESETS = {
-  flat: [0, 0, 0, 0, 0, 0, 0],
-  bass: [7, 5, 3, 0, 0, 0, 0],
-  treble: [0, 0, 0, 1, 3, 5, 7],
-  vocal: [-3, -2, 0, 4, 2, -1, 0],
-  rock: [4, 3, -1, -2, 2, 4, 5]
-};
+interface CustomPreset {
+  name: string;
+  values: number[];
+}
 
 const Equalizer: React.FC<EqualizerProps> = ({
   onEnableChange
 }) => {
-  const [activeTab, setActiveTab] = useState<'eq' | 'comp' | 'tone'>('eq');
+  const [activeTab, setActiveTab] = useState<'eq' | 'comp' | 'tone' | 'presets'>('eq');
   const [compressorEnabled, setCompressorEnabled] = useState<boolean>(false);
   const [compressorSettings, setCompressorSettings] = useState({
     threshold: -24,
@@ -30,10 +26,34 @@ const Equalizer: React.FC<EqualizerProps> = ({
     knee: 30
   });
   const [preampGain, setPreampGain] = useState<number>(0);
+  const [customPresets, setCustomPresets] = useState<CustomPreset[]>([]);
+  const [newPresetName, setNewPresetName] = useState<string>('');
+  const [selectedPreset, setSelectedPreset] = useState<string>('Normal');
+  const [showSaveDialog, setShowSaveDialog] = useState<boolean>(false);
+  const saveDialogRef = useRef<HTMLDivElement>(null);
 
   // Get the audio context
   const { getAudioElement } = useAudioContext();
   const audioElement = getAudioElement();
+  
+  // Load custom presets from localStorage on component mount
+  useEffect(() => {
+    const savedPresets = localStorage.getItem('customEqPresets');
+    if (savedPresets) {
+      try {
+        const parsedPresets = JSON.parse(savedPresets);
+        setCustomPresets(parsedPresets);
+      } catch (error) {
+        console.error('Error parsing saved presets:', error);
+      }
+    }
+    
+    // Load last used preset
+    const lastUsedPreset = localStorage.getItem('lastUsedEqPreset');
+    if (lastUsedPreset) {
+      setSelectedPreset(lastUsedPreset);
+    }
+  }, []);
 
   const {
     isEnabled,
@@ -111,9 +131,83 @@ const Equalizer: React.FC<EqualizerProps> = ({
   };
 
   // Apply preset
-  const applyPreset = (presetName: keyof typeof PRESETS) => {
-    setAllBandGains(PRESETS[presetName]);
+  const applyPreset = (presetName: string) => {
+    // Check if it's a built-in preset
+    if (presetName in PRESETS) {
+      const preset = PRESETS[presetName as keyof typeof PRESETS];
+      setAllBandGains(preset);
+      setSelectedPreset(presetName);
+      localStorage.setItem('lastUsedEqPreset', presetName);
+      return;
+    }
+    
+    // Check if it's a custom preset
+    const customPreset = customPresets.find(p => p.name === presetName);
+    if (customPreset) {
+      setAllBandGains(customPreset.values);
+      setSelectedPreset(presetName);
+      localStorage.setItem('lastUsedEqPreset', presetName);
+    }
   };
+  
+  // Save current EQ settings as a custom preset
+  const saveCustomPreset = () => {
+    if (!newPresetName.trim()) return;
+    
+    const newPreset: CustomPreset = {
+      name: newPresetName.trim(),
+      values: [...eqValues]
+    };
+    
+    // Check if a preset with this name already exists
+    const existingIndex = customPresets.findIndex(p => p.name === newPreset.name);
+    
+    let updatedPresets: CustomPreset[];
+    if (existingIndex >= 0) {
+      // Update existing preset
+      updatedPresets = [...customPresets];
+      updatedPresets[existingIndex] = newPreset;
+    } else {
+      // Add new preset
+      updatedPresets = [...customPresets, newPreset];
+    }
+    
+    setCustomPresets(updatedPresets);
+    localStorage.setItem('customEqPresets', JSON.stringify(updatedPresets));
+    setSelectedPreset(newPreset.name);
+    localStorage.setItem('lastUsedEqPreset', newPreset.name);
+    setNewPresetName('');
+    setShowSaveDialog(false);
+  };
+  
+  // Delete a custom preset
+  const deleteCustomPreset = (presetName: string) => {
+    const updatedPresets = customPresets.filter(p => p.name !== presetName);
+    setCustomPresets(updatedPresets);
+    localStorage.setItem('customEqPresets', JSON.stringify(updatedPresets));
+    
+    // If the deleted preset was selected, switch to Normal
+    if (selectedPreset === presetName) {
+      applyPreset('Normal');
+    }
+  };
+  
+  // Handle click outside save dialog
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (saveDialogRef.current && !saveDialogRef.current.contains(event.target as Node)) {
+        setShowSaveDialog(false);
+      }
+    };
+    
+    if (showSaveDialog) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showSaveDialog]);
 
   // Toggle equalizer
   const handleToggleEqualizer = () => {
@@ -163,6 +257,12 @@ const Equalizer: React.FC<EqualizerProps> = ({
             className={`px-3 py-1 text-xs rounded-md transition-colors ${activeTab === 'eq' ? 'bg-[#1DB954] text-white' : 'bg-[#2a3a4a] text-gray-300 hover:bg-[#3a4a5a]'}`}
           >
             Equalizer
+          </button>
+          <button
+            onClick={() => setActiveTab('presets')}
+            className={`px-3 py-1 text-xs rounded-md transition-colors ${activeTab === 'presets' ? 'bg-[#1DB954] text-white' : 'bg-[#2a3a4a] text-gray-300 hover:bg-[#3a4a5a]'}`}
+          >
+            Presets
           </button>
           <button
             onClick={() => setActiveTab('tone')}
@@ -296,15 +396,24 @@ const Equalizer: React.FC<EqualizerProps> = ({
             <div className="flex items-center">
               <div className="relative w-48">
                 <select
-                  onChange={(e) => applyPreset(e.target.value as keyof typeof PRESETS)}
+                  value={selectedPreset}
+                  onChange={(e) => applyPreset(e.target.value)}
                   className="w-full px-3 py-2 bg-[#2a3a4a] hover:bg-[#3a4a5a] rounded text-sm appearance-none cursor-pointer"
                   disabled={!isConnected}
                 >
-                  <option value="rock">Rock Preset</option>
-                  <option value="flat">Flat</option>
-                  <option value="bass">Bass Boost</option>
-                  <option value="treble">Treble Boost</option>
-                  <option value="vocal">Vocal Boost</option>
+                  <optgroup label="Built-in Presets">
+                    {Object.keys(PRESETS).map((preset) => (
+                      <option key={preset} value={preset}>{preset}</option>
+                    ))}
+                  </optgroup>
+                  
+                  {customPresets.length > 0 && (
+                    <optgroup label="Custom Presets">
+                      {customPresets.map((preset) => (
+                        <option key={preset.name} value={preset.name}>{preset.name}</option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
                 <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -313,13 +422,53 @@ const Equalizer: React.FC<EqualizerProps> = ({
                 </div>
               </div>
             </div>
-            <button
-              onClick={resetEqualizer}
-              className="px-4 py-2 bg-[#1DB954] hover:bg-[#19a64a] text-white rounded text-sm"
-              disabled={!isConnected}
-            >
-              Reset
-            </button>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setShowSaveDialog(true)}
+                className="px-4 py-2 bg-[#2a3a4a] hover:bg-[#3a4a5a] text-white rounded text-sm"
+                disabled={!isConnected}
+              >
+                Save
+              </button>
+              <button
+                onClick={resetEqualizer}
+                className="px-4 py-2 bg-[#1DB954] hover:bg-[#19a64a] text-white rounded text-sm"
+                disabled={!isConnected}
+              >
+                Reset
+              </button>
+            </div>
+            
+            {/* Save Preset Dialog */}
+            {showSaveDialog && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div ref={saveDialogRef} className="bg-[#1a2330] border border-[#2a3a4a] rounded-lg p-4 w-80">
+                  <h3 className="text-white text-lg font-semibold mb-4">Save Preset</h3>
+                  <input
+                    type="text"
+                    value={newPresetName}
+                    onChange={(e) => setNewPresetName(e.target.value)}
+                    placeholder="Preset Name"
+                    className="w-full px-3 py-2 bg-[#2a3a4a] text-white rounded mb-4"
+                  />
+                  <div className="flex justify-end space-x-2">
+                    <button
+                      onClick={() => setShowSaveDialog(false)}
+                      className="px-4 py-2 bg-[#3a4a5a] text-white rounded"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={saveCustomPreset}
+                      className="px-4 py-2 bg-[#1DB954] text-white rounded"
+                      disabled={!newPresetName.trim()}
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -458,18 +607,129 @@ const Equalizer: React.FC<EqualizerProps> = ({
         </div>
       )}
 
+      {activeTab === 'presets' && (
+        <div className="p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-sm font-semibold">Equalizer Presets</h3>
+            <button
+              onClick={() => setShowSaveDialog(true)}
+              className="px-3 py-1 bg-[#1DB954] hover:bg-[#19a64a] text-white rounded text-xs"
+              disabled={!isConnected}
+            >
+              Save Current Settings
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <h4 className="text-xs font-semibold mb-2 text-gray-400">Built-in Presets</h4>
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                {Object.keys(PRESETS).map((preset) => (
+                  <div key={preset} className="flex justify-between items-center bg-[#2a3a4a] p-2 rounded">
+                    <span className="text-sm">{preset}</span>
+                    <button
+                      onClick={() => applyPreset(preset)}
+                      className={`px-2 py-1 text-xs rounded ${selectedPreset === preset ? 'bg-[#1DB954] text-white' : 'bg-[#3a4a5a] text-gray-300 hover:bg-[#4a5a6a]'}`}
+                      disabled={!isConnected}
+                    >
+                      {selectedPreset === preset ? 'Active' : 'Apply'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="text-xs font-semibold text-gray-400">Custom Presets</h4>
+              </div>
+              {customPresets.length > 0 ? (
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                  {customPresets.map((preset) => (
+                    <div key={preset.name} className="flex justify-between items-center bg-[#2a3a4a] p-2 rounded">
+                      <span className="text-sm">{preset.name}</span>
+                      <div className="flex space-x-1">
+                        <button
+                          onClick={() => applyPreset(preset.name)}
+                          className={`px-2 py-1 text-xs rounded ${selectedPreset === preset.name ? 'bg-[#1DB954] text-white' : 'bg-[#3a4a5a] text-gray-300 hover:bg-[#4a5a6a]'}`}
+                          disabled={!isConnected}
+                        >
+                          {selectedPreset === preset.name ? 'Active' : 'Apply'}
+                        </button>
+                        <button
+                          onClick={() => deleteCustomPreset(preset.name)}
+                          className="px-2 py-1 text-xs rounded bg-[#e53935] text-white hover:bg-[#f44336]"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-[#2a3a4a] p-3 rounded text-center text-gray-400 text-sm">
+                  No custom presets saved yet.
+                  <div className="mt-2">
+                    <button
+                      onClick={() => setShowSaveDialog(true)}
+                      className="px-3 py-1 bg-[#3a4a5a] hover:bg-[#4a5a6a] text-white rounded text-xs"
+                      disabled={!isConnected}
+                    >
+                      Create New Preset
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="mt-4 bg-[#2a3a4a] p-3 rounded">
+            <h4 className="text-xs font-semibold mb-2">Current EQ Settings</h4>
+            <div className="flex justify-between">
+              {frequencyBands.map((freq, index) => (
+                <div key={freq} className="flex flex-col items-center">
+                  <div 
+                    className="w-1 h-12 bg-[#3a4a5a] relative rounded-full overflow-hidden"
+                    title={`${freq < 1000 ? freq : `${freq / 1000}k`}Hz: ${eqValues[index]}dB`}
+                  >
+                    <div 
+                      className={`absolute bottom-6 w-full ${eqValues[index] > 0 ? 'bg-[#1DB954]' : 'bg-[#e53935]'}`}
+                      style={{
+                        height: `${Math.abs(eqValues[index]) / 12 * 100}%`,
+                        bottom: eqValues[index] >= 0 ? '50%' : 'auto',
+                        top: eqValues[index] < 0 ? '50%' : 'auto'
+                      }}
+                    ></div>
+                  </div>
+                  <span className="text-[8px] text-gray-400 mt-1">
+                    {freq < 1000 ? freq : `${freq / 1000}k`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      
       {activeTab === 'comp' && (
         <div className="p-4">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-sm font-semibold">Compressor</h3>
-            <button
-              onClick={() => setCompressorEnabled(!compressorEnabled)}
-              className={`px-3 py-1 rounded-md text-xs transition-colors ${compressorEnabled ? 'bg-[#1DB954] text-white' : 'bg-[#2a3a4a] text-gray-300 hover:bg-[#3a4a5a]'}`}
-            >
-              {compressorEnabled ? 'On' : 'Off'}
-            </button>
+            <div className="flex items-center">
+              <span className="text-xs text-gray-400 mr-2">Enable</span>
+              <button
+                onClick={() => setCompressorEnabled(!compressorEnabled)}
+                className={`w-10 h-5 rounded-full relative ${compressorEnabled ? 'bg-[#1DB954]' : 'bg-[#2a3a4a]'} transition-colors`}
+                disabled={!isConnected}
+              >
+                <span
+                  className={`absolute w-4 h-4 bg-white rounded-full top-0.5 transition-transform ${compressorEnabled ? 'translate-x-5' : 'translate-x-1'}`}
+                ></span>
+              </button>
+            </div>
           </div>
-
           <div className="grid grid-cols-5 gap-4">
             {Object.entries(compressorSettings).map(([key, value]) => (
               <div key={key} className="flex flex-col">
