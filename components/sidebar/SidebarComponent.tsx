@@ -11,6 +11,8 @@ import {
 } from '@/store/slices/playerSlice';
 import * as musicMetadata from 'music-metadata';
 import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import SideBarTile from './SideBarTile';
 
 const SidebarComponent = () => {
     const dispatch = useAppDispatch();
@@ -22,7 +24,7 @@ const SidebarComponent = () => {
         metaDataProgress,
         localMusic
     } = useAppSelector((state) => state.player);
-
+    const navigation = usePathname();
     const fetchData = () => {
         localStorage.setItem('address', serverAddress);
         // You'll need to implement the fetch logic here
@@ -207,66 +209,94 @@ const SidebarComponent = () => {
             </div>
 
             {/* Upload Music Section */}
-            <div className="mb-6">
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-3">Upload Music</h2>
-                <div className="flex flex-col space-y-3">
-                    <label
-                        htmlFor="folder-upload"
-                        className="text-white bg-[#333333] hover:bg-[#444444] p-3 rounded-md transition-colors w-full flex items-center justify-center cursor-pointer"
+            <SideBarTile heading='Upload Music'>
+                <label
+                    htmlFor="folder-upload"
+                    className="text-white bg-[#333333] hover:bg-[#444444] p-3 rounded-md transition-colors w-full flex items-center justify-center cursor-pointer"
+                >
+                    <svg
+                        className="w-4 h-4 mr-2"
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                     >
-                        <svg
-                            className="w-4 h-4 mr-2"
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        >
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                            <polyline points="17 8 12 3 7 8"></polyline>
-                            <line x1="12" y1="3" x2="12" y2="15"></line>
-                        </svg>
-                        Select Folder
-                    </label>
-                    <input
-                        type="file"
-                        id="folder-upload"
-                        webkitdirectory=""
-                        className="hidden"
-                        onChange={handleFolderUpload}
-                    />
-                    {uploadStatus && (
-                        <div
-                            className={`text-xs text-center mt-1 ${uploadStatus.success ? 'text-green-500' : 'text-red-500'
-                                }`}
-                        >
-                            {uploadStatus.message}
-                        </div>
-                    )}
-                    <button
-                        className={`text-white p-3 rounded-md transition-colors w-full flex items-center justify-center ${viewMode === 'local'
-                            ? 'bg-[#1DB954] hover:bg-[#1ed760]'
-                            : 'bg-[#333333] hover:bg-[#444444]'
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <span className='px-3'>Select Folder</span>
+                </label>
+                <input
+                    type="file"
+                    id="folder-upload"
+                    webkitdirectory=""
+                    className="hidden"
+                    onChange={handleFolderUpload}
+                />
+                {uploadStatus && (
+                    <div
+                        className={`text-xs text-center mt-1 ${uploadStatus.success ? 'text-green-500' : 'text-red-500'
                             }`}
-                        onClick={() => dispatch(setViewMode('local'))}
                     >
-                        <svg
-                            className="w-4 h-4 mr-2"
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        >
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                        </svg>
-                        My Music
-                    </button>
-                    <Link className='text-white p-3 rounded-md transition-colors w-full flex items-center justify-center bg-[#333333] hover:bg-[#444444]' href="/equalizer"> <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        {uploadStatus.message}
+                    </div>
+                )}
+                <button
+                    className={`text-white p-3 rounded-md transition-colors w-full flex items-center justify-center ${viewMode === 'local'
+                        ? 'bg-[#1DB954] hover:bg-[#1ed760]'
+                        : 'bg-[#333333] hover:bg-[#444444]'
+                        }`}
+                    onClick={() => dispatch(setViewMode('local'))}
+                >
+                    <svg
+                        className="w-4 h-4 mr-2"
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    >
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                    </svg>
+                    My Music
+                </button>
+
+                <button
+                    className={`text-white bg-[#333333] hover:bg-[#444444] p-3 rounded-md transition-colors w-full flex items-center justify-center ${viewMode === 'server'
+                        ? 'bg-[#1DB954] hover:bg-[#1ed760]'
+                        : 'bg-[#333333] hover:bg-[#444444]'
+                        }`}
+                    onClick={() => dispatch(setViewMode('server'))}
+                >
+                    <svg
+                        className="w-4 h-4 mr-2"
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                    >
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                        <line x1="8" y1="21" x2="16" y2="21"></line>
+                        <line x1="12" y1="17" x2="12" y2="21"></line>
+                    </svg>
+                    Server Music
+                </button>
+            </SideBarTile>
+
+            <SideBarTile heading='Configs'>
+                <Link className={`text-white p-3 rounded-md transition-colors w-full flex items-center justify-center 
+                        ${navigation === '/equalizer' ? 'bg-[#1DB954] hover:bg-[#1ed760]'
+                        : 'bg-[#333333] hover:bg-[#444444]'}
+                            `} href="/equalizer"> <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="4" y1="21" x2="4" y2="14"></line>
                         <line x1="4" y1="10" x2="4" y2="3"></line>
                         <line x1="12" y1="21" x2="12" y2="12"></line>
@@ -276,33 +306,22 @@ const SidebarComponent = () => {
                         <line x1="1" y1="14" x2="7" y2="14"></line>
                         <line x1="9" y1="8" x2="15" y2="8"></line>
                         <line x1="17" y1="16" x2="23" y2="16"></line>
-                    </svg>  Equalizer</Link>
-                    <button
-                        className={`text-white bg-[#333333] hover:bg-[#444444] p-3 rounded-md transition-colors w-full flex items-center justify-center ${viewMode === 'server'
-                            ? 'bg-[#1DB954] hover:bg-[#1ed760]'
-                            : 'bg-[#333333] hover:bg-[#444444]'
-                            }`}
-                        onClick={() => dispatch(setViewMode('server'))}
-                    >
-                        <svg
-                            className="w-4 h-4 mr-2"
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        >
-                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                            <line x1="8" y1="21" x2="16" y2="21"></line>
-                            <line x1="12" y1="17" x2="12" y2="21"></line>
-                        </svg>
-                        Server Music
-                    </button>
-                </div>
-            </div>
-
+                    </svg> <span className='px-3'>Equalizer</span> </Link>
+                <Link className={`text-white p-3 rounded-md transition-colors w-full flex items-center justify-center 
+                        ${navigation === '/visualizer' ? 'bg-[#1DB954] hover:bg-[#1ed760]'
+                        : 'bg-[#333333] hover:bg-[#444444]'}
+                            `} href="/visualizer"> <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="4" y1="21" x2="4" y2="14"></line>
+                        <line x1="4" y1="10" x2="4" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12" y2="3"></line>
+                        <line x1="20" y1="21" x2="20" y2="16"></line>
+                        <line x1="20" y1="12" x2="20" y2="3"></line>
+                        <line x1="1" y1="14" x2="7" y2="14"></line>
+                        <line x1="9" y1="8" x2="15" y2="8"></line>
+                        <line x1="17" y1="16" x2="23" y2="16"></line>
+                    </svg> <span className='px-3'> Visualizer</span></Link>
+            </SideBarTile>
             {/* Volume Control */}
             <div className="mb-6">
                 <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-400 mb-3">Volume</h2>

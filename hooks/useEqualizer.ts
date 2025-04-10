@@ -22,7 +22,7 @@ let globalGainNode: GainNode | null = null;
 let eqFilters: BiquadFilterNode[] = [];
 let bassBiquadFilter: BiquadFilterNode | null = null;
 let trebleBiquadFilter: BiquadFilterNode | null = null;
-let gainNodeFilter: GainNode | null = null;
+let analyserNodeFilter: AnalyserNode | null = null;
 let isConnected = false;
 
 export const useEqualizer = () => {
@@ -66,6 +66,7 @@ export const useEqualizer = () => {
             if (!globalSourceNode && globalAudioContext) {
                 try {
                     globalSourceNode = globalAudioContext.createMediaElementSource(audioElement);
+                    analyserNodeFilter = globalAudioContext.createAnalyser();
                     console.log("Created source node");
                 } catch (error) {
                     console.error("Error creating source node:", error);
@@ -175,7 +176,10 @@ export const useEqualizer = () => {
                     lastNode = filter;
                     console.log(`Connected EQ band ${index} (${FREQUENCY_BANDS[index]} Hz)`);
                 });
-
+                if (analyserNodeFilter) {
+                    lastNode.connect(analyserNodeFilter);
+                    analyserNodeFilter.connect(globalAudioContext.destination);
+                }
                 // Connect to gain node and then to destination
                 lastNode.connect(globalGainNode);
                 globalGainNode.connect(globalAudioContext.destination);
@@ -525,6 +529,7 @@ export const useEqualizer = () => {
         frequencyBands: FREQUENCY_BANDS,
         bassFilter,
         trebleFilter,
+        analyserNodeFilter,
         connectEqualizer,
         disconnectEqualizer,
         toggleEqualizer,
