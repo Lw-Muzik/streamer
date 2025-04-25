@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import ReduxProvider from "../providers/ReduxProvider";
 import { AudioProvider } from "@/contexts/AudioContext";
 import ThemeProvider from '@/providers/ThemeProvider';
+import AuthProvider from "@/providers/AuthProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -34,15 +35,17 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider>
-          <Suspense fallback={<div>Loading...</div>}>
-            <ReduxProvider>
-              <AudioProvider>
-                {children}
-              </AudioProvider>
-            </ReduxProvider>
-          </Suspense>
-        </ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <Suspense fallback={<div>Loading...</div>}>
+              <ReduxProvider>
+                <AudioProvider>
+                  {children}
+                </AudioProvider>
+              </ReduxProvider>
+            </Suspense>
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   );
