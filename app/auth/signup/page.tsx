@@ -117,7 +117,7 @@ export default function SignUp() {
             }
 
             const signInResult = await signIn('credentials', {
-                redirect: true,
+                redirect: false,
                 email: formData.email,
                 password: formData.password,
             });
@@ -260,7 +260,7 @@ export default function SignUp() {
                                         required
                                         value={formData.confirmPassword}
                                         onChange={handleInputChange}
-                                        className="appearance-none block w-full pl-10 pr-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 dark:text-white sm:text-sm"
+                                        className="appearance-none block w-full pl-10 pr-10 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm dark:placeholder-gray-400 placeholder:text-black dark:placeholder:text-white focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-700 text-black dark:text-white sm:text-sm"
                                         placeholder="••••••••"
                                     />
                                     <button
