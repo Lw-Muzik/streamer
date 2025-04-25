@@ -1,3 +1,4 @@
+"use client"
 import React, { useState, useEffect, useRef } from 'react';
 import { SongItem } from '@/types';
 import Link from 'next/link';
@@ -44,7 +45,7 @@ const Player: React.FC<PlayerProps> = () => {
             // This function only updates refs, not state directly
             const updateTimes = () => {
                 currentTimeRef.current = audioElement.currentTime;
-                
+
                 // Only update duration if it's a valid number and different from current
                 if (!isNaN(audioElement.duration) && audioElement.duration > 0) {
                     durationRef.current = audioElement.duration;

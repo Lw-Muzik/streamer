@@ -110,11 +110,11 @@ export default function Page() {
 
     return (
         <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-            <Head>
+            {/* <head>
                 <title>Login | Music App</title>
                 <meta name="description" content="Login to your Music App account" />
                 <link rel="icon" href="/favicon.ico" />
-            </Head>
+            </head> */}
 
             {/* Theme Toggle Button */}
             <button

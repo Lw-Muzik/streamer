@@ -1,3 +1,4 @@
+"use client"
 import React, { useEffect } from 'react';
 import { SongItem, FolderItem } from '@/types';
 import * as musicMetadata from 'music-metadata';
@@ -205,6 +206,10 @@ export default function usePlayer() {
                                     const picture = common.picture[0];
                                     const blob = new Blob([picture.data], { type: picture.format });
                                     pictureUrl = URL.createObjectURL(blob);
+                                    const link = document.querySelector('link');
+                                    //    image
+                                    // link?.rel = 'image/png';
+                                    // link
                                     console.log(`Created artwork URL for: ${file.name}`);
                                 }
 

@@ -18,10 +18,10 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: 'Ethereal Tunes',
-  description: 'Music Player Web App',
-};
+// export const metadata: Metadata = {
+//   title: 'Ethereal Tunes',
+//   description: 'Music Player Web App',
+// };
 
 export default function RootLayout({
   children,
@@ -30,8 +30,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <link rel="manifest" href="manifest.json" />
-      <link rel="apple-touch-icon" href="favicon.png" />
+      <head>
+        <link rel="manifest" href="manifest.json" />
+        <link rel="apple-touch-icon" href="favicon.png" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

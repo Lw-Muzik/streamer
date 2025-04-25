@@ -1,3 +1,4 @@
+"use client"
 import React from 'react';
 import LoadingComponent from './LoadingComponent';
 import { useAppDispatch, useAppSelector } from '@/store';

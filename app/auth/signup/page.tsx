@@ -31,11 +31,11 @@ export default function SignUp() {
     const router = useRouter();
 
     // Redirect if already authenticated
-    useEffect(() => {
-        if (status === 'authenticated') {
-            router.push('/');
-        }
-    }, [status, router]);
+    // useEffect(() => {
+    //     if (status === 'authenticated') {
+    //         router.push('/');
+    //     }
+    // }, [status, router]);
 
     // Initialize theme based on user preference
     useEffect(() => {

@@ -1,3 +1,4 @@
+"use client"
 import { useAppDispatch, useAppSelector } from '@/store';
 import { FolderItem } from '@/types';
 import React from 'react';
