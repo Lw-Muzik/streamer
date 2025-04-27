@@ -1,3 +1,4 @@
+"use client"
 import React from 'react';
 
 const Page = () => {
@@ -6,7 +7,7 @@ const Page = () => {
     }, []);
     return (
         <div>
-
+            <h1>Forgot Password</h1>
         </div>
     );
 };
