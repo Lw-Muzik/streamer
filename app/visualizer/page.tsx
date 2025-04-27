@@ -8,7 +8,10 @@ const Page = () => {
     const { analyserNodeFilter } = useEqualizer();
     const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
     const animationRef = React.useRef<number | null>(null);
-
+    // add title
+    React.useEffect(() => {
+        document.title = "Visualizer | Ethereal Tunes";
+    }, []);
     // function to create visualizer
     const createVisualizer = () => {
         if (analyserNodeFilter && canvasRef.current) {

@@ -6,10 +6,10 @@ import ContentTabsLayout from '@/components/ContentTabs/ContentTabsLayout';
 
 import AppLayout from '@/components/Layout/AppLayout';
 
-// export const metadata: Metadata = {
-//   title: "Player",
-//   description: "Control what you want to listen to."
-// }
+export const metadata: Metadata = {
+  title: "Player | Ethereal Tunes",
+  description: "Control what you want to listen to."
+}
 export default function Home() {
 
   return (

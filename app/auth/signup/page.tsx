@@ -30,15 +30,11 @@ export default function SignUp() {
     const { data: session, status } = useSession();
     const router = useRouter();
 
-    // Redirect if already authenticated
-    // useEffect(() => {
-    //     if (status === 'authenticated') {
-    //         router.push('/');
-    //     }
-    // }, [status, router]);
+
 
     // Initialize theme based on user preference
     useEffect(() => {
+        document.title = "Sign Up | Ethereal Tunes";
         const isDarkMode = localStorage.getItem('darkMode') === 'true' ||
             window.matchMedia('(prefers-color-scheme: dark)').matches;
         setDarkMode(isDarkMode);

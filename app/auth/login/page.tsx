@@ -1,7 +1,6 @@
 "use client"
 // pages/login.tsx
 import { useState, useEffect } from 'react';
-import Head from 'next/head';
 import Link from 'next/link';
 import { Music, Moon, Sun, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { useSession, signIn } from 'next-auth/react';
@@ -25,7 +24,10 @@ export default function Page() {
         password: '',
         rememberMe: false,
     });
-
+    // add title
+    useEffect(() => {
+        document.title = "Login | Ethereal Tunes";
+    }, []);
     const { data: session, status } = useSession();
     const router = useRouter();
 

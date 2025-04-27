@@ -1,14 +1,18 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
+import GoogleProvider from 'next-auth/providers/google';
 import { MongoDBAdapter } from '@next-auth/mongodb-adapter';
 import clientPromise from '@/lib/mongodb';
 import bcrypt from 'bcryptjs';
-// import { NextRequest, NextResponse } from 'next/server';
 import { AuthOptions } from 'next-auth';
 
-const authOptions: AuthOptions = {
+export const authOptions: AuthOptions = {
     adapter: MongoDBAdapter(clientPromise),
     providers: [
+        GoogleProvider({
+            clientId: process.env.GOOGLE_CLIENT_ID!,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+        }),
         CredentialsProvider({
             name: 'Credentials',
             credentials: {
@@ -45,16 +49,17 @@ const authOptions: AuthOptions = {
         strategy: 'jwt',
     },
     pages: {
-        signIn: '/auth/login',
+        signIn: '/auth/login', // your custom login page
     },
     callbacks: {
-        async jwt({ token, user }: { token: any; user: any }) {
+        async jwt({ token, user, account, profile }: any) {
+            // If the user is signing in for the first time
             if (user) {
-                token.id = user.id;
+                token.id = user.id ?? user.sub ?? token.id; // `user.sub` comes from Google
             }
             return token;
         },
-        async session({ session, token }: { session: any; token: any }) {
+        async session({ session, token }: any) {
             if (session.user) {
                 session.user.id = token.id;
             }
@@ -65,5 +70,6 @@ const authOptions: AuthOptions = {
 };
 
 const handler = NextAuth(authOptions);
-// export default handler;
+
+// Required for app router: 
 export { handler as GET, handler as POST };

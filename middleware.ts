@@ -9,11 +9,11 @@ const corsOptions = {
 };
 
 export async function middleware(request: NextRequest) {
-    console.log('Middleware triggered for:', request.nextUrl.pathname);
+    // console.log('Middleware triggered for:', request.nextUrl.pathname);
 
     // Handle OPTIONS request for CORS preflight
     if (request.method === 'OPTIONS') {
-        console.log('Handling OPTIONS request');
+        // console.log('Handling OPTIONS request');
         const response = new NextResponse(null, { status: 204 });
         Object.entries(corsOptions).forEach(([key, value]) => {
             response.headers.set(key, value);
@@ -28,18 +28,18 @@ export async function middleware(request: NextRequest) {
         request.nextUrl.pathname.startsWith('/api') ||
         request.nextUrl.pathname.includes('.')
     ) {
-        console.log('Skipping middleware for:', request.nextUrl.pathname);
+        // console.log('Skipping middleware for:', request.nextUrl.pathname);
         return NextResponse.next();
     }
 
     // Check for authenticated session using NextAuth
     const session = request.cookies.get('next-auth.session-token')?.value ||
         request.cookies.get('__Secure-next-auth.session-token')?.value;
-    console.log('Session found:', !!session);
-    console.log('Request cookies:', request.cookies.getAll());
+    // console.log('Session found:', !!session);
+    // console.log('Request cookies:', request.cookies.getAll());
 
     if (!session) {
-        console.log('No session found, redirecting to login');
+        // console.log('No session found, redirecting to login');
         // Redirect unauthenticated users to login page
         const response = NextResponse.redirect(new URL('/auth/login', request.nextUrl.origin));
         Object.entries(corsOptions).forEach(([key, value]) => {

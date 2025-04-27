@@ -8,7 +8,9 @@ import AppLayout from "@/components/Layout/AppLayout";
 
 const Page = () => {
     const { getAudioElement } = useAudioContext();
-
+    React.useEffect(() => {
+        document.title = "Equalizer | Ethereal Tunes";
+    }, []);
     return (
         <AppLayout>
             <div className=" overflow-y-scroll bg-gradient-to-b from-[#121212] to-[#000000] text-white p-6">
