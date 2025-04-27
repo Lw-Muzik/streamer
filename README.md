@@ -1,5 +1,7 @@
 # Streamer - Music Streaming Platform
 
+[![Netlify Status](https://api.netlify.com/api/v1/badges/YOUR-SITE-ID/deploy-status)](https://app.netlify.com/sites/strimer/deploys)
+
 ![Player Screenshot](public/assets/player.png)
 
 A modern music streaming platform built with Next.js, featuring authentication, music metadata handling, and a responsive UI.
