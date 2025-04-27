@@ -1,8 +1,6 @@
 # Streamer - Music Streaming Platform
 
-<!-- add the image here -->
-![Streamer Screenshot](/player.png)
-
+![Player Screenshot](public/assets/player.png)
 
 A modern music streaming platform built with Next.js, featuring authentication, music metadata handling, and a responsive UI.
 
