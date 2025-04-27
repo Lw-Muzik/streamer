@@ -1,6 +1,6 @@
 # Streamer - Music Streaming Platform
 
-[![Netlify Status](https://api.netlify.com/api/v1/badges/YOUR-SITE-ID/deploy-status)](https://app.netlify.com/sites/strimer/deploys)
+[![Netlify Status](https://api.netlify.com/api/v1/badges/266ce29c-9e3b-4222-bbfd-7c46b9f4e19a/deploy-status)](https://app.netlify.com/sites/strimer/deploys)
 
 ![Player Screenshot](public/assets/player.png)
 
